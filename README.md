@@ -35,3 +35,4 @@
 ![35](https://github.com/user-attachments/assets/3e1a7500-a80b-489c-91af-0fbc42370373)
 https://patents.google.com/patent/KR100716410B1/ko
 https://patents.google.com/patent/KR101245313B1/ko
+끝까지 읽어주셔서 감사합니다 이 글이 시사하는 바는 얼마나 크건 작건 그만한 역치값이 있다는것을 증명하기 위한 식입니다
