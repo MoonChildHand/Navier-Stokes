@@ -33,4 +33,5 @@
 ![33](https://github.com/user-attachments/assets/614d237e-89db-4f7d-bcd7-0461bdc60a84)
 ![34](https://github.com/user-attachments/assets/8a37b49e-ad27-49b5-a960-937f92e825e7)
 ![35](https://github.com/user-attachments/assets/3e1a7500-a80b-489c-91af-0fbc42370373)
-
+https://patents.google.com/patent/KR100716410B1/ko
+https://patents.google.com/patent/KR101245313B1/ko
