@@ -1,0 +1,156 @@
+import math
+import matplotlib.pyplot as plt
+
+#################################################
+# 1. 나비에 스트로크 확장 모델 (웹보안 관련)
+#################################################
+
+def navier_stokes_base(u, v, p, rho, mu, dx, dy):
+    """
+    기본 나비에-스트로크 모델 (매우 단순화된 형태)
+    u, v: 2D 속도 성분 (예시로 단일 값 사용)
+    p: 압력
+    rho: 밀도, mu: 점성계수, dx, dy: 공간 격자 간격
+    """
+    # 단순화된 convective, viscous, pressure 항 계산
+    convective = rho * (u**2)
+    viscous = mu * (u)
+    pressure = -p
+    return convective + viscous + pressure
+
+def navier_stroke_extended(u, v, p, rho, mu, dx, dy):
+    """
+    나비에 스트로크 모델에 추가 항들을 더함.
+    추가 항:
+      - 나비에 원주율 항: π * u
+      - 나비에 맥스웰 항: 상수(여기서는 1.0) * v
+      - 나비에 자연로그 e 항: ln(e) * p  (ln(e) ≈ 1)
+    """
+    base = navier_stokes_base(u, v, p, rho, mu, dx, dy)
+    pi_term = math.pi * u
+    maxwell_term = 1.0 * v
+    log_term = math.log(math.e + 1e-10) * p  # 아주 작은 상수 추가로 0 division 방지
+    return base + pi_term + maxwell_term + log_term
+
+# 예제 실행: (이 값들은 개념 증명을 위한 임의의 값입니다.)
+u_val = 1.0
+v_val = 0.5
+p_val = 101.3
+rho_val = 1.225
+mu_val = 0.018
+dx = 0.1
+dy = 0.1
+
+extended_result = navier_stroke_extended(u_val, v_val, p_val, rho_val, mu_val, dx, dy)
+print("Extended Navier-Stroke result:", extended_result)
+
+
+#################################################
+# 2. 시스템 보안 및 취약점 분석 (어셈블리 코드 분석 및 마할라 노비스 적분 상수 시각화)
+#################################################
+
+# (A) 어셈블리어 기반 취약점 분석 예제
+# 실제 어셈블리 코드 분석을 위해서는 capstone 라이브러리 등 전문 도구가 필요합니다.
+# 아래는 capstone이 설치되어 있을 경우 사용할 수 있는 간단한 예시입니다.
+try:
+    from capstone import Cs, CS_ARCH_X86, CS_MODE_32
+except ImportError:
+    Cs = None
+    print("Capstone 라이브러리가 설치되어 있지 않습니다. 어셈블리 분석 모듈은 비활성화됩니다.")
+
+def disassemble_code(code_bytes):
+    """
+    x86 32비트 어셈블리 코드를 디스어셈블하여 출력하는 함수.
+    """
+    if Cs is None:
+        print("어셈블리 분석 기능이 사용 불가능합니다.")
+        return
+    md = Cs(CS_ARCH_X86, CS_MODE_32)
+    for insn in md.disasm(code_bytes, 0x1000):
+        print("0x%x:\t%s\t%s" % (insn.address, insn.mnemonic, insn.op_str))
+
+# 더미 어셈블리 코드 (예시)
+dummy_code = b"\x55\x48\x8b\x05\xb8\x13\x00\x00"
+if Cs:
+    print("\n--- 어셈블리 코드 디스어셈블 예제 ---")
+    disassemble_code(dummy_code)
+
+
+# (B) 마할라 노비스 적분 상수 시각화 예제
+def mahalanobis_integration_visualization(data):
+    """
+    마할라노비스 거리 기반 데이터를 적분한 후,
+    그 적분 상수를 시각화하는 예제.
+    data: 리스트나 배열 형태의 데이터
+    (여기서는 단순 누적 합을 적분 상수의 대용으로 사용)
+    """
+    # 누적합(적분의 단순 모델)
+    integration_constant = [sum(data[:i+1]) for i in range(len(data))]
+    plt.figure(figsize=(6, 4))
+    plt.plot(data, label='원 데이터')
+    plt.plot(integration_constant, label='적분 상수(누적합)')
+    plt.xlabel("Index")
+    plt.ylabel("Value")
+    plt.title("마할라 노비스 적분 상수 시각화")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    # 이후, 시각화된 적분 상수를 분석해 위험 구간을 "지우는" 처리를 구상할 수 있음.
+    
+# 예제 데이터 (임의의 값)
+sample_data = [1, 2, 1.5, 2.5, 3, 2, 1]
+mahalanobis_integration_visualization(sample_data)
+
+
+#################################################
+# 3. 네트워크 보안 (VPN 분리 기법)
+#################################################
+
+class VPNManager:
+    """
+    각 접속 사이트별로 독립적인 VPN 터널을 관리하는 클래스.
+    """
+    def __init__(self):
+        self.vpn_tunnels = {}  # 사이트별 VPN 터널 매핑
+
+    def assign_vpn(self, site):
+        """
+        사이트에 대해 새로운 VPN 터널을 할당하거나, 기존 터널을 반환.
+        """
+        if site not in self.vpn_tunnels:
+            tunnel_id = f"VPN-{len(self.vpn_tunnels)+1}"
+            self.vpn_tunnels[site] = tunnel_id
+        return self.vpn_tunnels[site]
+
+    def get_vpn(self, site):
+        """
+        해당 사이트에 할당된 VPN 터널 반환 (없으면 None)
+        """
+        return self.vpn_tunnels.get(site, None)
+
+# 예제 실행:
+vpn_manager = VPNManager()
+sites = ["example.com", "another.com", "example.com", "third.com"]
+
+print("\n--- VPN 할당 예제 ---")
+for site in sites:
+    tunnel = vpn_manager.assign_vpn(site)
+    print(f"Site: {site} is assigned to tunnel: {tunnel}")
+
+
+#################################################
+# 4. 웹보안 (해킹 코드의 양자화 제거)
+#################################################
+
+def remove_quantization(hacking_code):
+    """
+    해킹 코드 내 양자화된 마커("[Q]")를 제거하여 원래의 코드 형태 복원.
+    실제 구현에서는 복잡한 양자화 처리 알고리즘이 필요하겠지만,
+    여기서는 단순 문자열 치환으로 개념 증명.
+    """
+    return hacking_code.replace("[Q]", "")
+
+# 예제 해킹 코드 (양자화된 코드의 예시)
+quantized_code = "MOV AX, [Q]0xFF; ADD BX, [Q]0x10"
+dequantized_code = remove_quantization(quantized_code)
+print("\nDequantized Code:", dequantized_code)
