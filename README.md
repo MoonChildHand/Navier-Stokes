@@ -12,6 +12,7 @@
 양자화 제거 및       분석 및 적분상수     적분과 Navier-Stokes   혈압 상승을 유도,
 나비에 항 추가        시각화)            해 = 0 조건)            생명 유지 효과)
 기법 적용)
+
 ![1](https://github.com/user-attachments/assets/835b5dbd-5989-45fd-9e45-c55420d74726)
 ![2](https://github.com/user-attachments/assets/0d959729-e2b6-42ae-82a3-c3461e15e705)
 ![3](https://github.com/user-attachments/assets/5888eb9e-a842-49a5-8cab-761a6efb3c9d)
