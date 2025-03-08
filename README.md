@@ -1,38 +1,19 @@
-![1](https://github.com/user-attachments/assets/bb1bf2d2-c872-4767-94c3-4cc065572285)
-![2](https://github.com/user-attachments/assets/0da4ed8b-b445-44e9-a027-f1f6cfe5410c)
-![3](https://github.com/user-attachments/assets/701b11e7-b1f9-43f1-95ad-f594a0306eae)
-![4](https://github.com/user-attachments/assets/213dea76-fa26-418d-bb39-ee138674bc2d)
-![5](https://github.com/user-attachments/assets/e63d9bc8-f3cb-4f35-975c-266f6881237e)
-![6](https://github.com/user-attachments/assets/d400f4c4-962c-45f3-84e0-719aa65583c8)
-![7](https://github.com/user-attachments/assets/ae28321d-876d-4b62-b61d-c3f04131c5b9)
-![8](https://github.com/user-attachments/assets/10b56298-fb42-4fe4-8b49-c91489aebf36)
-![9](https://github.com/user-attachments/assets/80712e5a-cd9a-44aa-abf4-945e22cf39aa)
-![10](https://github.com/user-attachments/assets/0c8a3348-17ba-4e35-9bed-f523ca939519)
-![11](https://github.com/user-attachments/assets/a09589dc-5bef-4a21-bbf4-6ad0c8ac4c99)
-![12](https://github.com/user-attachments/assets/a5de76a0-317f-413c-8425-ac2277ba09c6)
-![13](https://github.com/user-attachments/assets/7b89d0cd-298f-45c6-a0d0-01768d1eea66)
-![14](https://github.com/user-attachments/assets/45215d21-d76a-407f-9a2e-f7ffbad14f30)
-![15](https://github.com/user-attachments/assets/d678e5ca-cf75-4069-a5ac-0c91ff79b8e5)
-![16](https://github.com/user-attachments/assets/90303efd-1e62-4c92-9581-43c6e7b38476)
-![17](https://github.com/user-attachments/assets/e4af841c-a4d3-4ec6-ac32-05423a446b88)
-![18](https://github.com/user-attachments/assets/fae55722-754c-4f4f-b594-ca3e27d20a9f)
-![19](https://github.com/user-attachments/assets/3b4c2448-0613-434d-b697-37195a36c212)
-![20](https://github.com/user-attachments/assets/f543ba14-8eb0-4b07-80bb-0beae15c4bd4)
-![21](https://github.com/user-attachments/assets/d0eb796c-5fc4-4f5e-85bd-8c3763fb0a3c)
-![22](https://github.com/user-attachments/assets/e1212503-087f-4ddc-8c85-44672ec79896)
-![23](https://github.com/user-attachments/assets/48d1ca71-7f5d-4752-9998-dc3203860c82)
-![24](https://github.com/user-attachments/assets/5888e627-26f9-4513-9b35-3577d02c60a2)
-![25](https://github.com/user-attachments/assets/560b42c7-adb8-4e3b-9ec6-fe1c58ed3f03)
-![26](https://github.com/user-attachments/assets/cbc0789d-3577-4fdd-8b11-94960d551e99)
-![27](https://github.com/user-attachments/assets/fba5ebf3-9a5f-4ccb-8c92-6a769119622c)
-![28](https://github.com/user-attachments/assets/131dd4aa-0d95-4891-9523-3d074dd6e2db)
-![29](https://github.com/user-attachments/assets/d0badb6c-de18-4659-9f96-1d9fb46f3701)
-![30](https://github.com/user-attachments/assets/7e1ec0b3-94e5-45bc-9ece-07a6b20280c4)
-![31](https://github.com/user-attachments/assets/4c75dde5-cce6-43be-8a2a-a275eafa7ba8)
-![32](https://github.com/user-attachments/assets/8f592fea-2d4d-4510-a442-fa10fb861b0d)
-![33](https://github.com/user-attachments/assets/614d237e-89db-4f7d-bcd7-0461bdc60a84)
-![34](https://github.com/user-attachments/assets/8a37b49e-ad27-49b5-a960-937f92e825e7)
-![35](https://github.com/user-attachments/assets/3e1a7500-a80b-489c-91af-0fbc42370373)
-https://patents.google.com/patent/KR100716410B1/ko
-https://patents.google.com/patent/KR101245313B1/ko
-끝까지 읽어주셔서 감사합니다 이 글이 시사하는 바는 얼마나 크건 작건 그만한 역치값이 있다는것을 증명하기 위한 식입니다
+                          [백신 제작]
+                                │
+             ┌──────────────────┴──────────────────┐
+             │                                     │
+         [IT 백신]                             [의학적 백신]
+             │                                     │
+  ┌──────────┴─────────────┐            ┌───────────┴─────────────┐
+  │                        │            │                         │
+[웹 보안]           [시스템 보안]  [혈류 신호 제어]      [심폐소생술 유사 작용]
+  │                        │            │                         │
+(해킹 코드           (어셈블리어 취약점  (마할라노비스 함수      (간에 직접 작용하여
+양자화 제거 및       분석 및 적분상수     적분과 Navier-Stokes   혈압 상승을 유도,
+나비에 항 추가        시각화)            해 = 0 조건)            생명 유지 효과)
+기법 적용)
+![1](https://github.com/user-attachments/assets/835b5dbd-5989-45fd-9e45-c55420d74726)
+![2](https://github.com/user-attachments/assets/0d959729-e2b6-42ae-82a3-c3461e15e705)
+![3](https://github.com/user-attachments/assets/5888eb9e-a842-49a5-8cab-761a6efb3c9d)
+![4](https://github.com/user-attachments/assets/417dd5bc-0aa3-4f3a-a1fc-defa6eb9655f)
+![5](https://github.com/user-attachments/assets/e17caa06-a5ba-437f-8486-e6481233c87b)
