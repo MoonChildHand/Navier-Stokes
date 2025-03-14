@@ -1,0 +1,399 @@
+import numpy as np
+import hashlib
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from tensorflow import keras
+import tensorflow as tf
+
+class TransparentAIModel:
+    """
+    A wrapper class that makes AI models more transparent by tracking
+    and logging decision boundaries and feature importance
+    """
+    def __init__(self, model, feature_names=None):
+        self.model = model
+        self.feature_names = feature_names
+        self.decision_history = []
+        self.feature_importance = {}
+        self.hash_history = []
+        
+    def compute_feature_importance(self, X, y):
+        """
+        Calculate feature importance using permutation method
+        """
+        base_score = self.model.evaluate(X, y, verbose=0)
+        importance = {}
+        
+        for i in range(X.shape[1]):
+            # Save original values
+            orig_values = X[:, i].copy()
+            
+            # Shuffle the feature
+            np.random.shuffle(X[:, i])
+            
+            # Evaluate with shuffled feature
+            new_score = self.model.evaluate(X, y, verbose=0)
+            
+            # Restore original values
+            X[:, i] = orig_values
+            
+            # Calculate importance as decrease in performance
+            importance[i] = new_score - base_score
+            
+            if self.feature_names and i < len(self.feature_names):
+                name = self.feature_names[i]
+                self.feature_importance[name] = importance[i]
+            else:
+                self.feature_importance[f"feature_{i}"] = importance[i]
+                
+        return importance
+        
+    def explain_prediction(self, X_sample):
+        """
+        Provide explanation for a specific prediction
+        """
+        prediction = self.model.predict(X_sample)
+        
+        # Get activation values from intermediate layers
+        # This requires model to be a Keras model
+        if isinstance(self.model, keras.Model):
+            layer_outputs = []
+            activation_model = keras.Model(
+                inputs=self.model.input,
+                outputs=[layer.output for layer in self.model.layers]
+            )
+            activations = activation_model.predict(X_sample)
+            
+            for i, activation in enumerate(activations):
+                layer_outputs.append({
+                    "layer": self.model.layers[i].name,
+                    "activation_summary": {
+                        "mean": float(np.mean(activation)),
+                        "std": float(np.std(activation)),
+                        "min": float(np.min(activation)),
+                        "max": float(np.max(activation))
+                    }
+                })
+                
+            # Hash the layer outputs for blockchain storage
+            hash_value = self.hash_layer_outputs(layer_outputs)
+            self.hash_history.append(hash_value)
+            
+            explanation = {
+                "prediction": prediction.tolist(),
+                "layer_activations": layer_outputs,
+                "hash": hash_value
+            }
+            
+            self.decision_history.append(explanation)
+            return explanation
+        else:
+            return {"prediction": prediction.tolist()}
+            
+    def hash_layer_outputs(self, layer_outputs):
+        """
+        Create a hash of layer outputs for blockchain storage
+        """
+        # Convert to string and hash
+        output_str = str(layer_outputs)
+        return hashlib.sha256(output_str.encode()).hexdigest()
+        
+    def visualize_decision_boundary(self, X, y, feature_idx1=0, feature_idx2=1):
+        """
+        Visualize the decision boundary for two features
+        """
+        if X.shape[1] > 2:
+            # If more than 2 features, use PCA to reduce to 2D
+            pca = PCA(n_components=2)
+            X_reduced = pca.fit_transform(X)
+        else:
+            X_reduced = X.copy()
+            
+        # Create meshgrid
+        h = 0.01
+        x_min, x_max = X_reduced[:, 0].min() - 1, X_reduced[:, 0].max() + 1
+        y_min, y_max = X_reduced[:, 1].min() - 1, X_reduced[:, 1].max() + 1
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                             np.arange(y_min, y_max, h))
+        
+        # Get predictions for meshgrid points
+        if X.shape[1] > 2:
+            # Transform meshgrid points back to original feature space
+            grid = np.c_[xx.ravel(), yy.ravel()]
+            grid_orig = pca.inverse_transform(grid)
+            Z = self.model.predict(grid_orig)
+        else:
+            Z = self.model.predict(np.c_[xx.ravel(), yy.ravel()])
+            
+        Z = Z.reshape(xx.shape)
+        
+        # Plot the decision boundary
+        plt.figure(figsize=(10, 8))
+        plt.contourf(xx, yy, Z, alpha=0.8)
+        plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=y, edgecolors='k')
+        
+        if self.feature_names and len(self.feature_names) >= 2:
+            plt.xlabel(self.feature_names[feature_idx1])
+            plt.ylabel(self.feature_names[feature_idx2])
+        else:
+            plt.xlabel(f"Feature {feature_idx1}")
+            plt.ylabel(f"Feature {feature_idx2}")
+            
+        plt.title("Decision Boundary")
+        return plt
+
+
+class BlockchainLogger:
+    """
+    A simple blockchain implementation to store AI model decision logs
+    """
+    def __init__(self):
+        self.chain = []
+        self.create_genesis_block()
+        
+    def create_genesis_block(self):
+        """
+        Create the first block in the chain
+        """
+        genesis_block = {
+            'index': 0,
+            'timestamp': np.datetime64('now'),
+            'data': "Genesis Block",
+            'previous_hash': "0",
+            'hash': self.hash_block("Genesis Block" + "0")
+        }
+        self.chain.append(genesis_block)
+        
+    def hash_block(self, block_data):
+        """
+        Create SHA-256 hash of a block
+        """
+        if isinstance(block_data, dict):
+            block_data = str(block_data)
+        return hashlib.sha256(block_data.encode()).hexdigest()
+        
+    def add_block(self, data):
+        """
+        Add a new block to the chain with the given data
+        """
+        previous_block = self.chain[-1]
+        new_block = {
+            'index': previous_block['index'] + 1,
+            'timestamp': np.datetime64('now'),
+            'data': data,
+            'previous_hash': previous_block['hash'],
+            'hash': None
+        }
+        new_block['hash'] = self.hash_block(str(new_block['index']) + 
+                                            str(new_block['timestamp']) + 
+                                            str(new_block['data']) + 
+                                            new_block['previous_hash'])
+        self.chain.append(new_block)
+        return new_block
+        
+    def validate_chain(self):
+        """
+        Validate the integrity of the blockchain
+        """
+        for i in range(1, len(self.chain)):
+            current_block = self.chain[i]
+            previous_block = self.chain[i-1]
+            
+            # Check if the current block's hash is valid
+            if current_block['hash'] != self.hash_block(str(current_block['index']) + 
+                                                        str(current_block['timestamp']) + 
+                                                        str(current_block['data']) + 
+                                                        current_block['previous_hash']):
+                return False
+                
+            # Check if the previous hash reference is valid
+            if current_block['previous_hash'] != previous_block['hash']:
+                return False
+                
+        return True
+        
+    def get_chain_data(self):
+        """
+        Get all data stored in the blockchain
+        """
+        return [block['data'] for block in self.chain[1:]]  # Skip genesis block
+
+
+class AITransparencySystem:
+    """
+    System that combines transparent AI with blockchain logging
+    """
+    def __init__(self, model, feature_names=None):
+        self.transparent_model = TransparentAIModel(model, feature_names)
+        self.blockchain = BlockchainLogger()
+        
+    def train_and_log(self, X_train, y_train, X_test, y_test):
+        """
+        Train the model and log the training metadata to blockchain
+        """
+        # Train the model
+        history = self.transparent_model.model.fit(
+            X_train, y_train, 
+            validation_data=(X_test, y_test),
+            epochs=10,
+            verbose=1
+        )
+        
+        # Extract training metadata
+        training_metadata = {
+            "model_architecture": self.transparent_model.model.to_json(),
+            "training_samples": X_train.shape[0],
+            "test_samples": X_test.shape[0],
+            "training_loss": float(history.history['loss'][-1]),
+            "validation_loss": float(history.history['val_loss'][-1]),
+            "timestamp": str(np.datetime64('now'))
+        }
+        
+        # Add accuracy if available
+        if 'accuracy' in history.history:
+            training_metadata['training_accuracy'] = float(history.history['accuracy'][-1])
+            training_metadata['validation_accuracy'] = float(history.history['val_accuracy'][-1])
+            
+        # Log to blockchain
+        self.blockchain.add_block(training_metadata)
+        
+        # Calculate and log feature importance
+        self.transparent_model.compute_feature_importance(X_test, y_test)
+        self.blockchain.add_block({
+            "feature_importance": self.transparent_model.feature_importance,
+            "timestamp": str(np.datetime64('now'))
+        })
+        
+        return history
+        
+    def predict_and_log(self, X_sample):
+        """
+        Make a prediction and log both prediction and explanation to blockchain
+        """
+        # Get prediction with explanation
+        explanation = self.transparent_model.explain_prediction(X_sample)
+        
+        # Log to blockchain
+        self.blockchain.add_block({
+            "prediction": explanation,
+            "timestamp": str(np.datetime64('now'))
+        })
+        
+        return explanation
+        
+    def fourier_transform_analysis(self, X):
+        """
+        Apply Fourier transform to analyze frequency components of input data
+        Inspired by the Fourier transform analysis in the source document
+        """
+        # Apply FFT to each feature
+        feature_ffts = {}
+        
+        for i in range(X.shape[1]):
+            feature_data = X[:, i]
+            # Calculate FFT
+            fft_values = np.fft.fft(feature_data)
+            freqs = np.fft.fftfreq(len(feature_data))
+            
+            # Store only the positive frequencies
+            idx = np.argsort(freqs)
+            positive_freq_idx = idx[len(idx)//2:]
+            
+            feature_name = f"feature_{i}"
+            if self.transparent_model.feature_names and i < len(self.transparent_model.feature_names):
+                feature_name = self.transparent_model.feature_names[i]
+                
+            feature_ffts[feature_name] = {
+                "frequencies": freqs[positive_freq_idx].tolist(),
+                "magnitudes": np.abs(fft_values[positive_freq_idx]).tolist()
+            }
+            
+        # Log to blockchain
+        self.blockchain.add_block({
+            "fourier_analysis": feature_ffts,
+            "timestamp": str(np.datetime64('now'))
+        })
+        
+        return feature_ffts
+        
+    def visualize_frequency_components(self, feature_ffts, feature_name=None):
+        """
+        Visualize the frequency components of a feature
+        """
+        plt.figure(figsize=(12, 6))
+        
+        if feature_name and feature_name in feature_ffts:
+            # Plot specific feature
+            data = feature_ffts[feature_name]
+            plt.plot(data["frequencies"], data["magnitudes"])
+            plt.title(f"Frequency Components of {feature_name}")
+        else:
+            # Plot first feature
+            feature_name = list(feature_ffts.keys())[0]
+            data = feature_ffts[feature_name]
+            plt.plot(data["frequencies"], data["magnitudes"])
+            plt.title(f"Frequency Components of {feature_name}")
+            
+        plt.xlabel("Frequency")
+        plt.ylabel("Magnitude")
+        plt.grid(True)
+        
+        return plt
+
+
+# Example usage
+def create_example_model():
+    """
+    Create a simple neural network model for demonstration
+    """
+    model = keras.Sequential([
+        keras.layers.Dense(64, activation='relu', input_shape=(10,)),
+        keras.layers.Dense(32, activation='relu'),
+        keras.layers.Dense(16, activation='relu'),
+        keras.layers.Dense(1, activation='sigmoid')
+    ])
+    
+    model.compile(optimizer='adam',
+                  loss='binary_crossentropy',
+                  metrics=['accuracy'])
+    
+    return model
+
+
+if __name__ == "__main__":
+    # Create sample data
+    X = np.random.rand(1000, 10)
+    y = (X[:, 0] + X[:, 1] > 1).astype(int)  # Simple decision boundary
+    
+    # Split data
+    split = int(0.8 * len(X))
+    X_train, X_test = X[:split], X[split:]
+    y_train, y_test = y[:split], y[split:]
+    
+    # Feature names
+    feature_names = [f"feature_{i}" for i in range(10)]
+    
+    # Create and use the transparency system
+    model = create_example_model()
+    system = AITransparencySystem(model, feature_names)
+    
+    # Train and log
+    history = system.train_and_log(X_train, y_train, X_test, y_test)
+    
+    # Make prediction and log
+    sample = X_test[:1]
+    explanation = system.predict_and_log(sample)
+    
+    # Fourier transform analysis
+    feature_ffts = system.fourier_transform_analysis(X)
+    
+    # Print results
+    print("Blockchain validation:", system.blockchain.validate_chain())
+    print("Chain length:", len(system.blockchain.chain))
+    print("Feature importance:", system.transparent_model.feature_importance)
+    print("Prediction explanation hash:", explanation["hash"])
+    
+    # Visualizations
+    system.transparent_model.visualize_decision_boundary(X, y)
+    system.visualize_frequency_components(feature_ffts)
+    plt.show()
