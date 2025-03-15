@@ -1,35 +1,75 @@
 require 'digest'
+require 'time'
 
-class NavierStokesFourier
-  def initialize(grid_size, viscosity, density)
-    @u = Array.new(grid_size) { Array.new(grid_size, 0.0) }
-    @viscosity = viscosity
-    @density = density
+class Block
+  attr_reader :index, :timestamp, :data, :previous_hash, :hash
+
+  def initialize(index, timestamp, data, previous_hash)
+    @index = index
+    @timestamp = timestamp
+    @data = data
+    @previous_hash = previous_hash
+    @hash = calculate_hash
   end
 
-  def update_velocity_field
-    grid_size = @u.size
-    laplacian = Array.new(grid_size) { Array.new(grid_size, 0.0) }
-
-    for i in 1...(grid_size - 1)
-      for j in 1...(grid_size - 1)
-        laplacian[i][j] =
-          @u[i + 1][j] + @u[i - 1][j] + @u[i][j + 1] + @u[i][j - 1] - 4 * @u[i][j]
-      end
-    end
-
-    for i in 0...grid_size
-      for j in 0...grid_size
-        @u[i][j] += @viscosity * laplacian[i][j] / @density
-      end
-    end
-  end
-
-  def hash_velocity_field
-    Digest::SHA256.hexdigest(@u.flatten.join(","))
+  def calculate_hash
+    Digest::SHA256.hexdigest("#{index}#{timestamp}#{data}#{previous_hash}")
   end
 end
 
-nsf = NavierStokesFourier.new(50, 0.1, 1.0)
-nsf.update_velocity_field
-puts "Velocity Field Hash: #{nsf.hash_velocity_field}"
+class NavierStokesWithFourier
+  attr_reader :grid_size, :time_steps, :viscosity, :density, :blockchain
+
+  def initialize(grid_size, time_steps, viscosity, density)
+    @grid_size = grid_size
+    @time_steps = time_steps
+    @viscosity = viscosity
+    @density = density
+    @u = Array.new(grid_size) { Array.new(grid_size, 0.0) }
+    @v = Array.new(grid_size) { Array.new(grid_size, 0.0) }
+    @blockchain = []
+    create_genesis_block
+  end
+
+  def create_genesis_block
+    genesis_block = Block.new(0, current_timestamp, "Genesis Block", "0")
+    @blockchain << genesis_block
+  end
+
+  def add_block(data)
+    previous_block = @blockchain.last
+    new_block = Block.new(previous_block.index + 1, current_timestamp, data, previous_block.hash)
+    @blockchain << new_block
+  end
+
+  def current_timestamp
+    Time.now.utc.iso8601
+  end
+
+  def print_blockchain
+    puts "Blockchain data:"
+    @blockchain.each do |block|
+      puts "Block ##{block.index}"
+      puts "  Timestamp: #{block.timestamp}"
+      puts "  Hash: #{block.hash}"
+      puts "  Previous Hash: #{block.previous_hash}"
+      puts "  Data: #{block.data[0..50]}..." if block.data.length > 50
+      puts
+    end
+  end
+end
+
+# Main
+def main
+  ns_simulator = NavierStokesWithFourier.new(50, 100, 0.1, 1.0)
+
+  # Example simulation and block addition
+  10.times do |i|
+    ns_simulator.add_block("Simulation Step Data #{i + 1}")
+  end
+
+  ns_simulator.print_blockchain
+end
+
+main
+
