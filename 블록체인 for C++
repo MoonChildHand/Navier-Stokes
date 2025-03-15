@@ -1,212 +1,128 @@
 #include <iostream>
 #include <vector>
-#include <map>
+#include <string>
+#include <ctime>
+#include <sstream>
+#include <iomanip>
 #include <cmath>
-#include <numeric>
-#include <algorithm>
+#include <memory>
 
-using namespace std;
+#define GRID_SIZE 50
+#define TIME_STEPS 100
 
-// 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
-string CheckConditions(const map<string, bool>& data) {
-    if (!data.at("kidney_blood_flow_normal"))
-        return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상";
-    if (!data.at("diencephalon_flow"))
-        return "뇌수 흐름 방향 이상";
-    return "정상";
-}
+class Block {
+public:
+    int index;
+    std::string timestamp;
+    std::string data;
+    std::string previous_hash;
+    std::string hash;
 
-// 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
-string CheckCirculatoryAndDigestiveSystem(const map<string, bool>& data) {
-    if (!data.at("filtered_components"))
-        return "간에서 여과된 성분이 췌장으로 전달되지 않음";
-    if (!data.at("hormone_levels"))
-        return "대뇌 호르몬 수치 이상";
-    return "정상";
-}
-
-// 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
-string CheckBloodCells(const map<string, bool>& data) {
-    if (data.at("rbc_in_lung"))
-        return "폐순환에서 적혈구 발견 - 백혈병 가능성";
-    if (data.at("wbc_mixed"))
-        return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장";
-    if (data.at("brain_reverse_flow"))
-        return "뇌수 역류 - 억제제 및 소화제 복용 권장";
-    return "정상";
-}
-
-// 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
-bool CheckUnitVectors(const vector<vector<double>>& unitVectors) {
-    vector<double> reference = Normalize(unitVectors[0]);
-    for (const auto& vector : unitVectors) {
-        if (Normalize(vector) != reference)
-            return false;
+    Block(int index, const std::string& timestamp, const std::string& data, const std::string& previous_hash)
+        : index(index), timestamp(timestamp), data(data), previous_hash(previous_hash) {
+        this->hash = calculate_hash();
     }
-    return true;
-}
 
-// 벡터 정규화: 벡터를 표준 형태로 변환합니다.
-vector<double> Normalize(const vector<double>& vector) {
-    double magnitude = sqrt(inner_product(vector.begin(), vector.end(), vector.begin(), 0.0));
-    vector<double> normalizedVector(vector.size());
-    transform(vector.begin(), vector.end(), normalizedVector.begin(), [magnitude](double v){ return v / magnitude; });
-    return normalizedVector;
-}
-
-// 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
-string CheckReproductiveSystem(const map<string, object>& data) {
-    if (!any_cast<bool>(data.at("protein_intake")))
-        return "동물성 단백질 섭취 필요";
-    if (any_cast<int>(data.at("rbc_wbc_ratio")) != 1)
-        return "적혈구와 백혈구의 비율 불균형";
-    return "정상";
-}
-
-// 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
-string CheckDigestionNutrition(const map<string, bool>& data) {
-    if (!data.at("mineral_intake"))
-        return "식물성 무기질 섭취 부족";
-    return "정상";
-}
-
-// 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
-vector<double> NavierStokesTransform(const vector<double>& U, const vector<double>& omega) {
-    vector<double> result(U.size());
-    for (size_t i = 0; i < U.size(); ++i) {
-        result[i] = U[i] / (1.0 * omega[i]);
+    std::string calculate_hash() const {
+        std::stringstream ss;
+        ss << index << timestamp << data << previous_hash;
+        std::string block_data = ss.str();
+        unsigned int hash_value = 0;
+        for (char c : block_data) {
+            hash_value = (hash_value << 5) + c;
+        }
+        std::stringstream hex_ss;
+        hex_ss << std::hex << hash_value;
+        return hex_ss.str();
     }
-    return result;
-}
+};
 
-// 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
-vector<double> LinearCombinationTransform(double a1, const vector<double>& F_V, double a2, const vector<double>& F_T) {
-    vector<double> result(F_V.size());
-    for (size_t i = 0; i < F_V.size(); ++i) {
-        result[i] = a1 * F_V[i] + a2 * F_T[i];
+class NavierStokesWithFourier {
+public:
+    int grid_size;
+    int time_steps;
+    double viscosity;
+    double density;
+    std::vector<std::vector<double>> u; // Velocity field (u direction)
+    std::vector<std::vector<double>> v; // Velocity field (v direction)
+    std::vector<Block> blockchain;
+
+    NavierStokesWithFourier(int grid_size, int time_steps, double viscosity, double density)
+        : grid_size(grid_size), time_steps(time_steps), viscosity(viscosity), density(density),
+          u(grid_size, std::vector<double>(grid_size, 0.0)),
+          v(grid_size, std::vector<double>(grid_size, 0.0)) {
+        create_genesis_block();
     }
-    return result;
-}
 
-// 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
-double MahalanobisDistance(const vector<double>& X, const vector<vector<double>>& Sigma) {
-    vector<double> invSigmaX = MatrixVectorMultiply(InvertMatrix(Sigma), X);
-    return DotProduct(X, invSigmaX);
-}
+    void create_genesis_block() {
+        time_t now = time(NULL);
+        tm* t = localtime(&now);
+        std::stringstream ss;
+        ss << std::put_time(t, "%Y-%m-%d %H:%M:%S");
+        std::string timestamp = ss.str();
+        blockchain.emplace_back(0, timestamp, "Genesis Block", "0");
+    }
 
-// 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
-double HyperbolicSpeed(double sechCoeff, double nu) {
-    return -sechCoeff * pow(1.0 / cosh(nu), 2);
-}
+    void add_block(const std::string& data) {
+        time_t now = time(NULL);
+        tm* t = localtime(&now);
+        std::stringstream ss;
+        ss << std::put_time(t, "%Y-%m-%d %H:%M:%S");
+        std::string timestamp = ss.str();
+        int index = blockchain.back().index + 1;
+        std::string previous_hash = blockchain.back().hash;
+        blockchain.emplace_back(index, timestamp, data, previous_hash);
+    }
 
-// 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
-string RecommendMedication(const map<string, bool>& data) {
-    if (data.at("rbc_in_lung"))
-        return "전도체를 가진 약물 복용";
-    if (data.at("wbc_mixed"))
-        return "열전도율이 높은 액체 복용";
-    if (data.at("brain_reverse_flow"))
-        return "억제제 및 소화제 복용";
-    return "추천되는 약물 없음";
-}
-
-// 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
-string CheckRehabilitation(const map<string, bool>& data) {
-    if (data.at("rehabilitation_needed"))
-        return "10년 이상의 재활 필요";
-    if (data.at("neural_disorder"))
-        return "신경계 문제 확인 필요";
-    return "정상";
-}
-
-// 병질 구분 통합 알고리즘
-map<string, string> DiagnoseWithFourier(
-    const map<string, object>& data, const vector<vector<double>>& unitVectors) {
-    map<string, string> results;
-    map<string, bool> boolData;
-    for (const auto& pair : data) {
-        if (pair.second.type() == typeid(bool)) {
-            boolData[pair.first] = any_cast<bool>(pair.second);
+    void print_blockchain() const {
+        std::cout << "Blockchain data:\n";
+        for (const auto& block : blockchain) {
+            std::cout << "Block #" << block.index << std::endl;
+            std::cout << "  Timestamp: " << block.timestamp << std::endl;
+            std::cout << "  Hash: " << block.hash << std::endl;
+            std::cout << "  Previous Hash: " << block.previous_hash << std::endl;
+            std::cout << "  Data: " << block.data.substr(0, 50) << "...\n\n";
         }
     }
 
-    results["Initial Conditions"] = CheckConditions(boolData);
-    results["Circulatory and Digestive System"] = CheckCirculatoryAndDigestiveSystem(boolData);
-    results["Blood Cells"] = CheckBloodCells(boolData);
-    results["Unit Vector Consistency"] = CheckUnitVectors(unitVectors) ? "정상" : "불일치";
-    results["Reproductive System"] = CheckReproductiveSystem(data);
-    results["Digestion & Nutrition"] = CheckDigestionNutrition(boolData);
-    results["Medication Recommendation"] = RecommendMedication(boolData);
-    results["Rehabilitation"] = CheckRehabilitation(boolData);
-    return results;
-}
-
-// Helper: Dictionary<string, object>를 Dictionary<string, bool>로 변환
-map<string, bool> DataToBool(const map<string, object>& data) {
-    map<string, bool> boolData;
-    for (const auto& pair : data) {
-        if (pair.second.type() == typeid(bool)) {
-            boolData[pair.first] = any_cast<bool>(pair.second);
+    // Navier-Stokes simulation (simplified)
+    void simulate_navier_stokes() {
+        // Very basic example - you'll need a proper solver
+        for (int t = 0; t < time_steps; ++t) {
+            for (int i = 0; i < grid_size; ++i) {
+                for (int j = 0; j < grid_size; ++j) {
+                    // Example: Diffusion (very simplified)
+                    u[i][j] = u[i][j] + viscosity * (get_laplacian(u, i, j));
+                    v[i][j] = v[i][j] + viscosity * (get_laplacian(v, i, j));
+                }
+            }
+            add_simulation_data_to_blockchain(t);
         }
     }
-    return boolData;
-}
 
-// 행렬 역행렬 계산 (구체적인 구현 필요)
-vector<vector<double>> InvertMatrix(const vector<vector<double>>& matrix) {
-    // 실제 구현 필요
-    return matrix;
-}
-
-// 행렬-벡터 곱셈
-vector<double> MatrixVectorMultiply(const vector<vector<double>>& matrix, const vector<double>& vector) {
-    int rows = matrix.size();
-    int cols = matrix[0].size();
-    vector<double> result(rows, 0.0);
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            result[i] += matrix[i][j] * vector[j];
-        }
+    double get_laplacian(const std::vector<std::vector<double>>& field, int i, int j) const {
+        // Discrete Laplacian approximation
+        double sum = 0.0;
+        if (i > 0) sum += field[i - 1][j];
+        if (i < grid_size - 1) sum += field[i + 1][j];
+        if (j > 0) sum += field[i][j - 1];
+        if (j < grid_size - 1) sum += field[i][j + 1];
+        return (sum - 4.0 * field[i][j]);
     }
-    return result;
-}
 
-// 내적 계산
-double DotProduct(const vector<double>& vec1, const vector<double>& vec2) {
-    double result = 0.0;
-    for (size_t i = 0; i < vec1.size(); ++i) {
-        result += vec1[i] * vec2[i];
+    void add_simulation_data_to_blockchain(int step) {
+        std::stringstream ss;
+        ss << "Simulation Step: " << step << " - u[0][0]: " << u[0][0] << ", v[0][0]: " << v[0][0];
+        add_block(ss.str());
     }
-    return result;
-}
+};
 
 int main() {
-    // 예제 데이터
-    map<string, object> patientData = {
-        {"kidney_blood_flow_normal", true},
-        {"diencephalon_flow", true},
-        {"filtered_components", true},
-        {"hormone_levels", true},
-        {"rbc_in_lung", false},
-        {"wbc_mixed", false},
-        {"brain_reverse_flow", false},
-        {"protein_intake", true},
-        {"rbc_wbc_ratio", 1},
-        {"mineral_intake", true},
-        {"rehabilitation_needed", false},
-        {"neural_disorder", false}
-    };
+    NavierStokesWithFourier ns_simulator(GRID_SIZE, TIME_STEPS, 0.1, 1.0);
 
-    vector<vector<double>> unitVectors = {
-        {1.0, 0.0},
-        {1.0, 0.0}
-    };
+    ns_simulator.simulate_navier_stokes();
 
-    // 병질 구분 결과 출력
-    map<string, string> results = DiagnoseWithFourier(patientData, unitVectors);
-    for (const auto& result : results) {
-        cout << result.first << ": " << result.second << endl;
-    }
+    ns_simulator.print_blockchain();
 
     return 0;
 }
