@@ -1,0 +1,215 @@
+package main
+
+import (
+	"fmt"
+	"math"
+	"math/cmplx"
+)
+
+// NavierStokesTransform calculates velocity field using Navier-Stokes
+func NavierStokesTransform(u []float64, omega []float64) []complex128 {
+	result := make([]complex128, len(omega))
+	for i := 0; i < len(omega); i++ {
+		result[i] = complex(u[i%len(u)], 0) / complex(0, omega[i])
+	}
+	return result
+}
+
+// LinearCombinationTransform calculates linear combinations
+func LinearCombinationTransform(a1 float64, fv []float64, a2 float64, ft []float64) []float64 {
+	result := make([]float64, len(fv))
+	for i := 0; i < len(fv); i++ {
+		result[i] = a1*fv[i] + a2*ft[i]
+	}
+	return result
+}
+
+// MahalanobisDistance calculates the Mahalanobis distance
+func MahalanobisDistance(x []float64, sigma [][]float64) float64 {
+	// Simplified inverse of sigma (assuming diagonal matrix)
+	invSigma := make([][]float64, len(sigma))
+	for i := 0; i < len(sigma); i++ {
+		invSigma[i] = make([]float64, len(sigma[i]))
+		for j := 0; j < len(sigma[i]); j++ {
+			if i == j {
+				invSigma[i][j] = 1.0 / sigma[i][j]
+			}
+		}
+	}
+
+	// Calculate X.T * inv_Sigma * X
+	result := 0.0
+	for i := 0; i < len(x); i++ {
+		for j := 0; j < len(x); j++ {
+			result += x[i] * invSigma[i][j] * x[j]
+		}
+	}
+	return result
+}
+
+// HyperbolicSpeed calculates hyperbolic speed
+func HyperbolicSpeed(sechCoeff float64, nu float64) float64 {
+	return -sechCoeff * math.Pow(1.0/math.Cosh(nu), 2)
+}
+
+// CheckUnitVectors checks if vectors are unit vectors
+func CheckUnitVectors(vectors [][]float64) bool {
+	if len(vectors) == 0 {
+		return true
+	}
+
+	// Normalize the first vector
+	firstVector := vectors[0]
+	norm := 0.0
+	for _, val := range firstVector {
+		norm += val * val
+	}
+	norm = math.Sqrt(norm)
+
+	unitVector := make([]float64, len(firstVector))
+	for i, val := range firstVector {
+		unitVector[i] = val / norm
+	}
+
+	// Check all vectors against the first unit vector
+	for _, vector := range vectors {
+		vectorNorm := 0.0
+		for _, val := range vector {
+			vectorNorm += val * val
+		}
+		vectorNorm = math.Sqrt(vectorNorm)
+
+		for i, val := range vector {
+			normalizedVal := val / vectorNorm
+			if math.Abs(normalizedVal-unitVector[i]) > 1e-10 {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// RecommendMedication recommends medication based on symptoms
+func RecommendMedication(rbcInLung, wbcMixed, brainReverseFlow bool) string {
+	if rbcInLung {
+		return "전도체를 가진 약물 복용" // Immune boosting
+	} else if wbcMixed {
+		return "열전도율이 높은 액체 물질 복용" // WBC mixing
+	} else if brainReverseFlow {
+		return "소화제, 여과제 등 억제류 마취과 약물 복용" // Brain reverse flow
+	}
+	return "추천되는 약물 없음"
+}
+
+// PatientData holds patient information
+type PatientData struct {
+	KidneyBloodFlowNormal bool
+	DiencephalonFlow      bool
+	U                     []float64
+	Omega                 []float64
+	A1                    float64
+	FV                    []float64
+	A2                    float64
+	FT                    []float64
+	X                     []float64
+	Sigma                 [][]float64
+	SechCoeff             float64
+	Nu                    float64
+	UnitVectors           [][]float64
+	RbcInLung             bool
+	WbcMixed              bool
+	BrainReverseFlow      bool
+}
+
+// DiagnosisResult holds diagnosis results
+type DiagnosisResult struct {
+	VelocityField           []complex128
+	LinearVelocity          []float64
+	MahalanobisDist         float64
+	HyperSpeed              float64
+	UnitVectorConsistent    bool
+	MedicationRecommendation string
+}
+
+// DiagnoseWithFourier performs diagnosis using Fourier analysis
+func DiagnoseWithFourier(data PatientData) DiagnosisResult {
+	var result DiagnosisResult
+
+	// Check initial conditions
+	if !(data.KidneyBloodFlowNormal && data.DiencephalonFlow) {
+		fmt.Println("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상")
+		result.MedicationRecommendation = "초기 조건 불만족"
+		return result
+	}
+
+	// Navier-Stokes based velocity field calculation
+	result.VelocityField = NavierStokesTransform(data.U, data.Omega)
+
+	// Linear combination calculation
+	result.LinearVelocity = LinearCombinationTransform(data.A1, data.FV, data.A2, data.FT)
+
+	// Mahalanobis distance calculation
+	result.MahalanobisDist = MahalanobisDistance(data.X, data.Sigma)
+
+	// Hyperbolic speed calculation
+	result.HyperSpeed = HyperbolicSpeed(data.SechCoeff, data.Nu)
+
+	// Check unit vectors
+	result.UnitVectorConsistent = CheckUnitVectors(data.UnitVectors)
+
+	// Medication recommendation
+	result.MedicationRecommendation = RecommendMedication(data.RbcInLung, data.WbcMixed, data.BrainReverseFlow)
+
+	return result
+}
+
+// PrintResult prints diagnosis results
+func PrintResult(result DiagnosisResult) {
+	fmt.Println("Diagnosis Results:")
+
+	fmt.Print("Velocity Field: ")
+	for _, v := range result.VelocityField {
+		fmt.Printf("%.2f + %.2fi ", real(v), imag(v))
+	}
+	fmt.Println()
+
+	fmt.Print("Linear Velocity: ")
+	for _, v := range result.LinearVelocity {
+		fmt.Printf("%.2f ", v)
+	}
+	fmt.Println()
+
+	fmt.Printf("Mahalanobis Distance: %.2f\n", result.MahalanobisDist)
+	fmt.Printf("Hyperbolic Speed: %.2f\n", result.HyperSpeed)
+	fmt.Printf("Unit Vector Consistent: %t\n", result.UnitVectorConsistent)
+	fmt.Printf("Medication Recommendation: %s\n", result.MedicationRecommendation)
+}
+
+func main() {
+	// Create sample patient data
+	patientData := PatientData{
+		KidneyBloodFlowNormal: true,
+		DiencephalonFlow:      true,
+		U:                     []float64{1.0, 2.0, 3.0},
+		Omega:                 []float64{0.5, 1.0},
+		A1:                    0.6,
+		FV:                    []float64{0.8, 0.9},
+		A2:                    0.4,
+		FT:                    []float64{0.5, 0.7},
+		X:                     []float64{1.5, 2.0},
+		Sigma:                 [][]float64{{1.0, 0.0}, {0.0, 1.0}},
+		SechCoeff:             -0.3,
+		Nu:                    0.5,
+		UnitVectors:           [][]float64{{1.0, 0.0}, {1.0, 0.0}},
+		RbcInLung:             false,
+		WbcMixed:              false,
+		BrainReverseFlow:      false,
+	}
+
+	// Run diagnosis
+	result := DiagnoseWithFourier(patientData)
+
+	// Print results
+	PrintResult(result)
+}
