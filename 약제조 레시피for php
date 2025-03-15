@@ -1,0 +1,301 @@
+<?php
+
+// Structure to hold complex vector (using array of arrays for complex numbers [real, imag])
+class ComplexVector {
+    public $data = [];
+    public $size = 0;
+}
+
+// Structure to hold vector
+class Vector {
+    public $data = [];
+    public $size = 0;
+}
+
+// Structure to hold matrix
+class Matrix {
+    public $data = [];
+    public $rows = 0;
+    public $cols = 0;
+}
+
+// Function to create FFT of a vector (simplified)
+function navier_stokes_transform($U, $omega) {
+    $size = $omega->size;
+    $result = new ComplexVector();
+    $result->size = $size;
+    
+    // Simplified FFT calculation
+    for ($i = 0; $i < $size; $i++) {
+        // Complex number as array [real, imag]
+        $result->data[$i] = [
+            $U->data[$i % $U->size],
+            -$omega->data[$i]
+        ];
+    }
+    
+    return $result;
+}
+
+// Linear combination transform
+function linear_combination_transform($a1, $F_V, $a2, $F_T) {
+    $size = $F_V->size;
+    $result = new Vector();
+    $result->size = $size;
+    
+    for ($i = 0; $i < $size; $i++) {
+        $result->data[$i] = $a1 * $F_V->data[$i] + $a2 * $F_T->data[$i];
+    }
+    
+    return $result;
+}
+
+// Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+function mahalanobis_distance($X, $Sigma) {
+    // Create inverse of Sigma (simplified - assuming identity matrix)
+    $inv_Sigma = new Matrix();
+    $inv_Sigma->rows = $Sigma->rows;
+    $inv_Sigma->cols = $Sigma->cols;
+    
+    for ($i = 0; $i < $Sigma->rows; $i++) {
+        $inv_Sigma->data[$i] = [];
+        for ($j = 0; $j < $Sigma->cols; $j++) {
+            $inv_Sigma->data[$i][$j] = ($i == $j) ? 1.0 / $Sigma->data[$i][$j] : 0;
+        }
+    }
+    
+    // Calculate X^T * inv_Sigma * X
+    $result = 0.0;
+    for ($i = 0; $i < $X->size; $i++) {
+        for ($j = 0; $j < $X->size; $j++) {
+            $result += $X->data[$i] * $inv_Sigma->data[$i][$j] * $X->data[$j];
+        }
+    }
+    
+    return $result;
+}
+
+// Hyperbolic speed calculation
+function hyperbolic_speed($sech_coeff, $nu) {
+    return -$sech_coeff * (1.0 / cosh($nu)) * (1.0 / cosh($nu));
+}
+
+// Check if vectors are unit vectors
+function check_unit_vectors($vectors, $num_vectors) {
+    // Normalize first vector
+    $norm = 0.0;
+    for ($i = 0; $i < $vectors[0]->size; $i++) {
+        $norm += $vectors[0]->data[$i] * $vectors[0]->data[$i];
+    }
+    $norm = sqrt($norm);
+    
+    $unit_vector = new Vector();
+    $unit_vector->size = $vectors[0]->size;
+    
+    for ($i = 0; $i < $vectors[0]->size; $i++) {
+        $unit_vector->data[$i] = $vectors[0]->data[$i] / $norm;
+    }
+    
+    // Check if all vectors are close to the first unit vector
+    $result = true;
+    for ($v = 0; $v < $num_vectors; $v++) {
+        $norm = 0.0;
+        for ($i = 0; $i < $vectors[$v]->size; $i++) {
+            $norm += $vectors[$v]->data[$i] * $vectors[$v]->data[$i];
+        }
+        $norm = sqrt($norm);
+        
+        // Check if normalized vector is close to the first unit vector
+        $close = true;
+        for ($i = 0; $i < $vectors[$v]->size; $i++) {
+            if (abs(($vectors[$v]->data[$i] / $norm) - $unit_vector->data[$i]) > 1e-10) {
+                $close = false;
+                break;
+            }
+        }
+        
+        if (!$close) {
+            $result = false;
+            break;
+        }
+    }
+    
+    return $result;
+}
+
+// Recommend medication function
+function recommend_medication($rbc_in_lung, $wbc_mixed, $brain_reverse_flow) {
+    if ($rbc_in_lung) {
+        return "전도체를 가진 약물 복용";  // Immune boosting
+    } else if ($wbc_mixed) {
+        return "열전도율이 높은 액체 물질 복용";  // WBC mixing
+    } else if ($brain_reverse_flow) {
+        return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
+    } else {
+        return "추천되는 약물 없음";
+    }
+}
+
+// Structure for patient data
+class PatientData {
+    public $kidney_blood_flow_normal = false;
+    public $diencephalon_flow = false;
+    public $U;
+    public $omega;
+    public $a1 = 0.0;
+    public $F_V;
+    public $a2 = 0.0;
+    public $F_T;
+    public $X;
+    public $Sigma;
+    public $sech_coeff = 0.0;
+    public $nu = 0.0;
+    public $unit_vectors = [];
+    public $num_unit_vectors = 0;
+    public $rbc_in_lung = false;
+    public $wbc_mixed = false;
+    public $brain_reverse_flow = false;
+}
+
+// Structure for diagnosis result
+class DiagnosisResult {
+    public $velocity_field;
+    public $linear_velocity;
+    public $mahalanobis_dist = 0.0;
+    public $hyper_speed = 0.0;
+    public $unit_vector_consistent = false;
+    public $medication_recommendation = "";
+}
+
+// Main diagnostic function
+function diagnose_with_fourier($data) {
+    $result = new DiagnosisResult();
+    
+    // Check initial conditions
+    if (!($data->kidney_blood_flow_normal && $data->diencephalon_flow)) {
+        echo "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상\n";
+        // Initialize empty results
+        $result->velocity_field = new ComplexVector();
+        $result->linear_velocity = new Vector();
+        $result->mahalanobis_dist = 0.0;
+        $result->hyper_speed = 0.0;
+        $result->unit_vector_consistent = false;
+        $result->medication_recommendation = "초기 조건 불만족";
+        return $result;
+    }
+    
+    // Calculate velocity field using Navier-Stokes
+    $result->velocity_field = navier_stokes_transform($data->U, $data->omega);
+    
+    // Calculate linear velocity combination
+    $result->linear_velocity = linear_combination_transform($data->a1, $data->F_V, $data->a2, $data->F_T);
+    
+    // Calculate Mahalanobis distance
+    $result->mahalanobis_dist = mahalanobis_distance($data->X, $data->Sigma);
+    
+    // Calculate hyperbolic speed
+    $result->hyper_speed = hyperbolic_speed($data->sech_coeff, $data->nu);
+    
+    // Check unit vectors consistency
+    $result->unit_vector_consistent = check_unit_vectors($data->unit_vectors, $data->num_unit_vectors);
+    
+    // Recommend medication
+    $result->medication_recommendation = recommend_medication($data->rbc_in_lung, $data->wbc_mixed, $data->brain_reverse_flow);
+    
+    return $result;
+}
+
+function print_diagnosis_result($result) {
+    echo "Diagnosis Results:\n";
+    
+    echo "Velocity Field: ";
+    for ($i = 0; $i < $result->velocity_field->size; $i++) {
+        echo sprintf("%.2f + %.2fi ", $result->velocity_field->data[$i][0], $result->velocity_field->data[$i][1]);
+    }
+    echo "\n";
+    
+    echo "Linear Velocity: ";
+    for ($i = 0; $i < $result->linear_velocity->size; $i++) {
+        echo sprintf("%.2f ", $result->linear_velocity->data[$i]);
+    }
+    echo "\n";
+    
+    echo "Mahalanobis Distance: " . sprintf("%.2f", $result->mahalanobis_dist) . "\n";
+    echo "Hyperbolic Speed: " . sprintf("%.2f", $result->hyper_speed) . "\n";
+    echo "Unit Vector Consistent: " . ($result->unit_vector_consistent ? "true" : "false") . "\n";
+    echo "Medication Recommendation: " . $result->medication_recommendation . "\n";
+}
+
+// Main function
+function main() {
+    // Create sample patient data
+    $patient = new PatientData();
+    
+    $patient->kidney_blood_flow_normal = true;
+    $patient->diencephalon_flow = true;
+    
+    // Initialize U vector
+    $patient->U = new Vector();
+    $patient->U->size = 3;
+    $patient->U->data = [1.0, 2.0, 3.0];
+    
+    // Initialize omega vector
+    $patient->omega = new Vector();
+    $patient->omega->size = 2;
+    $patient->omega->data = [0.5, 1.0];
+    
+    $patient->a1 = 0.6;
+    
+    // Initialize F_V vector
+    $patient->F_V = new Vector();
+    $patient->F_V->size = 2;
+    $patient->F_V->data = [0.8, 0.9];
+    
+    $patient->a2 = 0.4;
+    
+    // Initialize F_T vector
+    $patient->F_T = new Vector();
+    $patient->F_T->size = 2;
+    $patient->F_T->data = [0.5, 0.7];
+    
+    // Initialize X vector
+    $patient->X = new Vector();
+    $patient->X->size = 2;
+    $patient->X->data = [1.5, 2.0];
+    
+    // Initialize Sigma matrix
+    $patient->Sigma = new Matrix();
+    $patient->Sigma->rows = 2;
+    $patient->Sigma->cols = 2;
+    $patient->Sigma->data = [
+        [1.0, 0.0],
+        [0.0, 1.0]
+    ];
+    
+    $patient->sech_coeff = -0.3;
+    $patient->nu = 0.5;
+    
+    // Initialize unit vectors
+    $patient->num_unit_vectors = 2;
+    $patient->unit_vectors = [];
+    
+    for ($v = 0; $v < $patient->num_unit_vectors; $v++) {
+        $patient->unit_vectors[$v] = new Vector();
+        $patient->unit_vectors[$v]->size = 2;
+        $patient->unit_vectors[$v]->data = [1.0, 0.0];
+    }
+    
+    $patient->rbc_in_lung = false;
+    $patient->wbc_mixed = false;
+    $patient->brain_reverse_flow = false;
+    
+    // Run diagnosis
+    $result = diagnose_with_fourier($patient);
+    
+    // Print results
+    print_diagnosis_result($result);
+}
+
+// Run the main function
+main();
+?>
