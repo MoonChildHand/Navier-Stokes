@@ -1,0 +1,103 @@
+import Foundation
+
+class NavierStokesWithFourier {
+    var gridSize: Int
+    var timeSteps: Int
+    var viscosity: Double
+    var density: Double
+    var u: [[Double]]
+    var v: [[Double]]
+    var blockchain: [[String: Any]]
+
+    init(gridSize: Int, timeSteps: Int, viscosity: Double, density: Double) {
+        self.gridSize = gridSize
+        self.timeSteps = timeSteps
+        self.viscosity = viscosity
+        self.density = density
+        self.u = Array(repeating: Array(repeating: 0.0, count: gridSize), count: gridSize)
+        self.v = Array(repeating: Array(repeating: 0.0, count: gridSize), count: gridSize)
+        self.blockchain = []
+        createGenesisBlock()
+    }
+
+    func createGenesisBlock() {
+        let genesisBlock: [String: Any] = [
+            "index": 0,
+            "timestamp": Date(),
+            "data": "Genesis Block",
+            "previous_hash": "0",
+            "hash": hashBlock(data: "Genesis Block0")
+        ]
+        blockchain.append(genesisBlock)
+    }
+
+    func hashBlock(data: String) -> String {
+        let digest = data.data(using: .utf8)!.sha256
+        return digest.map { String(format: "%02hhx", $0) }.joined()
+    }
+
+    func addBlock(data: [String: Any]) {
+        let previousBlock = blockchain.last!
+        var newBlock: [String: Any] = [
+            "index": (previousBlock["index"] as! Int) + 1,
+            "timestamp": Date(),
+            "data": data,
+            "previous_hash": previousBlock["hash"]!,
+            "hash": ""
+        ]
+        newBlock["hash"] = hashBlock(data: "\(newBlock)")
+        blockchain.append(newBlock)
+    }
+
+    func applyFourierTransform() -> ([[Double]], [[Double]]) {
+        // 푸리에 변환 (간단히 구현)
+        return (u, v)
+    }
+
+    func updateVelocityField() {
+        for _ in 0..<timeSteps {
+            for i in 0..<gridSize {
+                for j in 0..<gridSize {
+                    let laplacianU = laplacian(field: u, x: i, y: j)
+                    let laplacianV = laplacian(field: v, x: i, y: j)
+                    u[i][j] += viscosity * laplacianU / density
+                    v[i][j] += viscosity * laplacianV / density
+                }
+            }
+        }
+    }
+
+    func laplacian(field: [[Double]], x: Int, y: Int) -> Double {
+        let up = field[(x - 1 + gridSize) % gridSize][y]
+        let down = field[(x + 1) % gridSize][y]
+        let left = field[x][(y - 1 + gridSize) % gridSize]
+        let right = field[x][(y + 1) % gridSize]
+        return up + down + left + right - 4 * field[x][y]
+    }
+
+    func simulateAndRecord() {
+        for _ in 0..<10 {
+            updateVelocityField()
+            let analysisResults: [String: Any] = ["velocity_field_u": u, "velocity_field_v": v]
+            addBlock(data: analysisResults)
+        }
+    }
+}
+
+extension Data {
+    var sha256: Data {
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        self.withUnsafeBytes {
+            _ = CC_SHA256($0.baseAddress, CC_LONG(self.count), &hash)
+        }
+        return Data(hash)
+    }
+}
+
+let simulator = NavierStokesWithFourier(gridSize: 50, timeSteps: 100, viscosity: 0.1, density: 1.0)
+simulator.simulateAndRecord()
+
+for block in simulator.blockchain {
+    print(block)
+}
+
