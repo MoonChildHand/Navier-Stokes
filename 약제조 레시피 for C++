@@ -1,214 +1,59 @@
 #include <iostream>
 #include <vector>
-#include <complex>
-#include <cmath>
 #include <string>
-#include <algorithm>
+#include <cmath>
+#include <map>
 
-// Navier-Stokes based velocity field calculation
-std::vector<std::complex<double>> navier_stokes_transform(const std::vector<double>& U, const std::vector<double>& omega) {
-    std::vector<std::complex<double>> result(omega.size());
-    for (size_t i = 0; i < omega.size(); ++i) {
-        result[i] = U[i % U.size()] / std::complex<double>(0, omega[i]);
-    }
-    return result;
+std::string CheckConditions(const std::map<std::string, bool>& data) {
+    if (!data.at("kidney_blood_flow_normal")) return "콩팥/달팽이관 혈류 이상";
+    if (!data.at("diencephalon_flow")) return "뇌수 흐름 방향 이상";
+    return "정상";
 }
 
-// Linear combination calculation
-std::vector<double> linear_combination_transform(double a1, const std::vector<double>& F_V, 
-                                              double a2, const std::vector<double>& F_T) {
-    std::vector<double> result(F_V.size());
-    for (size_t i = 0; i < F_V.size(); ++i) {
-        result[i] = a1 * F_V[i] + a2 * F_T[i];
-    }
-    return result;
+std::string CheckCirculatorySystem(const std::map<std::string, bool>& data) {
+    if (!data.at("filtered_components")) return "간에서 여과된 성분이 췌장으로 전달되지 않음";
+    if (!data.at("hormone_levels")) return "대뇌 호르몬 이상";
+    return "정상";
 }
 
-// Mahalanobis distance calculation
-double mahalanobis_distance(const std::vector<double>& X, const std::vector<std::vector<double>>& Sigma) {
-    // Create inverse of Sigma (simplified - assuming diagonal matrix)
-    std::vector<std::vector<double>> invSigma = Sigma;
-    for (size_t i = 0; i < Sigma.size(); ++i) {
-        invSigma[i][i] = 1.0 / Sigma[i][i];
-    }
-    
-    // Calculate X.T * inv_Sigma * X
-    double result = 0.0;
-    for (size_t i = 0; i < X.size(); ++i) {
-        for (size_t j = 0; j < X.size(); ++j) {
-            result += X[i] * invSigma[i][j] * X[j];
-        }
-    }
-    return result;
+std::string CheckBloodCells(const std::map<std::string, bool>& data) {
+    if (data.at("rbc_in_lung")) return "전도체 약물 권장";
+    if (data.at("wbc_mixed")) return "열전도율이 높은 액체 권장";
+    if (data.at("brain_reverse_flow")) return "억제제 및 소화제 권장";
+    return "정상";
 }
 
-// Hyperbolic speed calculation
-double hyperbolic_speed(double sech_coeff, double nu) {
-    return -sech_coeff * std::pow(1.0 / std::cosh(nu), 2);
-}
-
-// Check if vectors are unit vectors
-bool check_unit_vectors(const std::vector<std::vector<double>>& vectors) {
-    if (vectors.empty()) return true;
-    
-    // Normalize the first vector to get the reference unit vector
-    std::vector<double> unit_vector = vectors[0];
-    double norm = 0.0;
-    for (const double& val : unit_vector) {
-        norm += val * val;
+bool CheckUnitVectors(const std::vector<std::vector<double>>& unitVectors) {
+    const auto& ref = unitVectors[0];
+    for (size_t i = 1; i < unitVectors.size(); ++i) {
+        double magnitude = std::sqrt(unitVectors[i][0] * unitVectors[i][0] + unitVectors[i][1] * unitVectors[i][1]);
+        if (unitVectors[i][0] / magnitude != ref[0] || unitVectors[i][1] / magnitude != ref[1])
+            return false;
     }
-    norm = std::sqrt(norm);
-    
-    for (double& val : unit_vector) {
-        val /= norm;
-    }
-    
-    // Check all vectors against the first unit vector
-    for (const auto& v : vectors) {
-        std::vector<double> normalized_v = v;
-        double v_norm = 0.0;
-        for (const double& val : normalized_v) {
-            v_norm += val * val;
-        }
-        v_norm = std::sqrt(v_norm);
-        
-        for (double& val : normalized_v) {
-            val /= v_norm;
-        }
-        
-        // Check if all components are close
-        for (size_t i = 0; i < normalized_v.size(); ++i) {
-            if (std::abs(normalized_v[i] - unit_vector[i]) > 1e-10) {
-                return false;
-            }
-        }
-    }
-    
     return true;
 }
 
-// Medication recommendation function
-std::string recommend_medication(bool rbc_in_lung, bool wbc_mixed, bool brain_reverse_flow) {
-    if (rbc_in_lung) {
-        return "전도체를 가진 약물 복용";  // Immune boosting
-    } else if (wbc_mixed) {
-        return "열전도율이 높은 액체 물질 복용";  // WBC mixing
-    } else if (brain_reverse_flow) {
-        return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
-    } else {
-        return "추천되는 약물 없음";
-    }
-}
-
-// Structure for patient data
-struct PatientData {
-    bool kidney_blood_flow_normal;
-    bool diencephalon_flow;
-    std::vector<double> U;
-    std::vector<double> omega;
-    double a1;
-    std::vector<double> F_V;
-    double a2;
-    std::vector<double> F_T;
-    std::vector<double> X;
-    std::vector<std::vector<double>> Sigma;
-    double sech_coeff;
-    double nu;
-    std::vector<std::vector<double>> unit_vectors;
-    bool rbc_in_lung;
-    bool wbc_mixed;
-    bool brain_reverse_flow;
-};
-
-// Structure for diagnosis result
-struct DiagnosisResult {
-    std::vector<std::complex<double>> velocity_field;
-    std::vector<double> linear_velocity;
-    double mahalanobis_dist;
-    double hyper_speed;
-    bool unit_vector_consistent;
-    std::string medication_recommendation;
-};
-
-// Main diagnosis function
-DiagnosisResult diagnose_with_fourier(const PatientData& data) {
-    DiagnosisResult result;
-    
-    // Check initial conditions
-    if (!(data.kidney_blood_flow_normal && data.diencephalon_flow)) {
-        std::cout << "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상" << std::endl;
-        return result;
-    }
-    
-    // Navier-Stokes based velocity field calculation
-    result.velocity_field = navier_stokes_transform(data.U, data.omega);
-    
-    // Linear combination calculation
-    result.linear_velocity = linear_combination_transform(data.a1, data.F_V, data.a2, data.F_T);
-    
-    // Mahalanobis distance calculation
-    result.mahalanobis_dist = mahalanobis_distance(data.X, data.Sigma);
-    
-    // Hyperbolic speed calculation
-    result.hyper_speed = hyperbolic_speed(data.sech_coeff, data.nu);
-    
-    // Check unit vectors
-    result.unit_vector_consistent = check_unit_vectors(data.unit_vectors);
-    
-    // Medication recommendation
-    result.medication_recommendation = recommend_medication(data.rbc_in_lung, data.wbc_mixed, data.brain_reverse_flow);
-    
-    return result;
-}
-
-// Print function for diagnosis results
-void print_result(const DiagnosisResult& result) {
-    std::cout << "Diagnosis Results:" << std::endl;
-    
-    std::cout << "Velocity Field: ";
-    for (const auto& v : result.velocity_field) {
-        std::cout << v.real() << " + " << v.imag() << "i ";
-    }
-    std::cout << std::endl;
-    
-    std::cout << "Linear Velocity: ";
-    for (const auto& v : result.linear_velocity) {
-        std::cout << v << " ";
-    }
-    std::cout << std::endl;
-    
-    std::cout << "Mahalanobis Distance: " << result.mahalanobis_dist << std::endl;
-    std::cout << "Hyperbolic Speed: " << result.hyper_speed << std::endl;
-    std::cout << "Unit Vector Consistent: " << (result.unit_vector_consistent ? "true" : "false") << std::endl;
-    std::cout << "Medication Recommendation: " << result.medication_recommendation << std::endl;
-}
-
 int main() {
-    // Create sample patient data
-    PatientData patient_data;
-    
-    patient_data.kidney_blood_flow_normal = true;
-    patient_data.diencephalon_flow = true;
-    patient_data.U = {1.0, 2.0, 3.0};
-    patient_data.omega = {0.5, 1.0};
-    patient_data.a1 = 0.6;
-    patient_data.F_V = {0.8, 0.9};
-    patient_data.a2 = 0.4;
-    patient_data.F_T = {0.5, 0.7};
-    patient_data.X = {1.5, 2.0};
-    patient_data.Sigma = {{1.0, 0.0}, {0.0, 1.0}};
-    patient_data.sech_coeff = -0.3;
-    patient_data.nu = 0.5;
-    patient_data.unit_vectors = {{1.0, 0.0}, {1.0, 0.0}};
-    patient_data.rbc_in_lung = false;
-    patient_data.wbc_mixed = false;
-    patient_data.brain_reverse_flow = false;
-    
-    // Run diagnosis
-    DiagnosisResult result = diagnose_with_fourier(patient_data);
-    
-    // Print results
-    print_result(result);
-    
+    std::map<std::string, bool> data = {
+        { "kidney_blood_flow_normal", true },
+        { "diencephalon_flow", true },
+        { "filtered_components", true },
+        { "hormone_levels", true },
+        { "rbc_in_lung", false },
+        { "wbc_mixed", false },
+        { "brain_reverse_flow", false }
+    };
+
+    std::vector<std::vector<double>> unitVectors = {
+        {1.0, 0.0},
+        {1.0, 0.0}
+    };
+
+    std::cout << "Initial Conditions: " << CheckConditions(data) << std::endl;
+    std::cout << "Circulatory System: " << CheckCirculatorySystem(data) << std::endl;
+    std::cout << "Blood Cells: " << CheckBloodCells(data) << std::endl;
+    std::cout << "Unit Vector Consistency: " << (CheckUnitVectors(unitVectors) ? "정상" : "불일치") << std::endl;
+
     return 0;
 }
+
