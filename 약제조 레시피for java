@@ -1,0 +1,339 @@
+import java.util.Arrays;
+
+public class MedicalDiagnosisSystem {
+    
+    // Complex number class
+    static class ComplexNumber {
+        double real;
+        double imag;
+        
+        public ComplexNumber(double real, double imag) {
+            this.real = real;
+            this.imag = imag;
+        }
+        
+        public ComplexNumber(double real) {
+            this.real = real;
+            this.imag = 0;
+        }
+        
+        public ComplexNumber divide(ComplexNumber other) {
+            double denom = other.real * other.real + other.imag * other.imag;
+            return new ComplexNumber(
+                (real * other.real + imag * other.imag) / denom,
+                (imag * other.real - real * other.imag) / denom
+            );
+        }
+        
+        @Override
+        public String toString() {
+            return String.format("%.2f + %.2fi", real, imag);
+        }
+    }
+    
+    // Structure to hold complex vector
+    static class ComplexVector {
+        ComplexNumber[] data;
+        int size;
+        
+        public ComplexVector(int size) {
+            this.size = size;
+            this.data = new ComplexNumber[size];
+            for (int i = 0; i < size; i++) {
+                this.data[i] = new ComplexNumber(0, 0);
+            }
+        }
+    }
+    
+    // Structure to hold vector
+    static class Vector {
+        double[] data;
+        int size;
+        
+        public Vector(int size) {
+            this.size = size;
+            this.data = new double[size];
+        }
+    }
+    
+    // Structure to hold matrix
+    static class Matrix {
+        double[][] data;
+        int rows;
+        int cols;
+        
+        public Matrix(int rows, int cols) {
+            this.rows = rows;
+            this.cols = cols;
+            this.data = new double[rows][cols];
+        }
+    }
+    
+    // Function to create FFT of a vector (simplified)
+    static ComplexVector navierStokesTransform(Vector U, Vector omega) {
+        int size = omega.size;
+        ComplexVector result = new ComplexVector(size);
+        
+        // Simplified FFT calculation
+        for (int i = 0; i < size; i++) {
+            double u_val = U.data[i % U.size];
+            ComplexNumber imaginaryI = new ComplexNumber(0, 1);
+            ComplexNumber omegaComplex = new ComplexNumber(0, omega.data[i]);
+            result.data[i] = new ComplexNumber(u_val).divide(omegaComplex);
+        }
+        
+        return result;
+    }
+    
+    // Linear combination transform
+    static Vector linearCombinationTransform(double a1, Vector F_V, double a2, Vector F_T) {
+        int size = F_V.size;
+        Vector result = new Vector(size);
+        
+        for (int i = 0; i < size; i++) {
+            result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i];
+        }
+        
+        return result;
+    }
+    
+    // Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+    static double mahalanobisDistance(Vector X, Matrix Sigma) {
+        // Create inverse of Sigma (simplified - assuming identity matrix)
+        Matrix invSigma = new Matrix(Sigma.rows, Sigma.cols);
+        for (int i = 0; i < Sigma.rows; i++) {
+            for (int j = 0; j < Sigma.cols; j++) {
+                invSigma.data[i][j] = (i == j) ? 1.0 / Sigma.data[i][j] : 0;
+            }
+        }
+        
+        // Calculate X^T * inv_Sigma * X
+        double result = 0.0;
+        for (int i = 0; i < X.size; i++) {
+            for (int j = 0; j < X.size; j++) {
+                result += X.data[i] * invSigma.data[i][j] * X.data[j];
+            }
+        }
+        
+        return result;
+    }
+    
+    // Hyperbolic speed calculation
+    static double hyperbolicSpeed(double sechCoeff, double nu) {
+        double sech = 1.0 / Math.cosh(nu);
+        return -sechCoeff * sech * sech;
+    }
+    
+    // Check if vectors are unit vectors
+    static boolean checkUnitVectors(Vector[] vectors, int numVectors) {
+        // Normalize first vector
+        double norm = 0.0;
+        for (int i = 0; i < vectors[0].size; i++) {
+            norm += vectors[0].data[i] * vectors[0].data[i];
+        }
+        norm = Math.sqrt(norm);
+        
+        Vector unitVector = new Vector(vectors[0].size);
+        
+        for (int i = 0; i < vectors[0].size; i++) {
+            unitVector.data[i] = vectors[0].data[i] / norm;
+        }
+        
+        // Check if all vectors are close to the first unit vector
+        boolean result = true;
+        for (int v = 0; v < numVectors; v++) {
+            norm = 0.0;
+            for (int i = 0; i < vectors[v].size; i++) {
+                norm += vectors[v].data[i] * vectors[v].data[i];
+            }
+            norm = Math.sqrt(norm);
+            
+            // Check if normalized vector is close to the first unit vector
+            boolean close = true;
+            for (int i = 0; i < vectors[v].size; i++) {
+                if (Math.abs((vectors[v].data[i] / norm) - unitVector.data[i]) > 1e-10) {
+                    close = false;
+                    break;
+                }
+            }
+            
+            if (!close) {
+                result = false;
+                break;
+            }
+        }
+        
+        return result;
+    }
+    
+    // Recommend medication function
+    static String recommendMedication(boolean rbcInLung, boolean wbcMixed, boolean brainReverseFlow) {
+        if (rbcInLung) {
+            return "전도체를 가진 약물 복용";  // Immune boosting
+        } else if (wbcMixed) {
+            return "열전도율이 높은 액체 물질 복용";  // WBC mixing
+        } else if (brainReverseFlow) {
+            return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
+        } else {
+            return "추천되는 약물 없음";
+        }
+    }
+    
+    // Structure for patient data
+    static class PatientData {
+        boolean kidneyBloodFlowNormal;
+        boolean diencephalonFlow;
+        Vector U;
+        Vector omega;
+        double a1;
+        Vector F_V;
+        double a2;
+        Vector F_T;
+        Vector X;
+        Matrix Sigma;
+        double sechCoeff;
+        double nu;
+        Vector[] unitVectors;
+        int numUnitVectors;
+        boolean rbcInLung;
+        boolean wbcMixed;
+        boolean brainReverseFlow;
+    }
+    
+    // Structure for diagnosis result
+    static class DiagnosisResult {
+        ComplexVector velocityField;
+        Vector linearVelocity;
+        double mahalanobisDist;
+        double hyperSpeed;
+        boolean unitVectorConsistent;
+        String medicationRecommendation;
+    }
+    
+    // Main diagnostic function
+    static DiagnosisResult diagnoseWithFourier(PatientData data) {
+        DiagnosisResult result = new DiagnosisResult();
+        
+        // Check initial conditions
+        if (!(data.kidneyBloodFlowNormal && data.diencephalonFlow)) {
+            System.out.println("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상");
+            // Initialize empty results
+            result.velocityField = new ComplexVector(0);
+            result.linearVelocity = new Vector(0);
+            result.mahalanobisDist = 0.0;
+            result.hyperSpeed = 0.0;
+            result.unitVectorConsistent = false;
+            result.medicationRecommendation = "초기 조건 불만족";
+            return result;
+        }
+        
+        // Calculate velocity field using Navier-Stokes
+        result.velocityField = navierStokesTransform(data.U, data.omega);
+        
+        // Calculate linear velocity combination
+        result.linearVelocity = linearCombinationTransform(data.a1, data.F_V, data.a2, data.F_T);
+        
+        // Calculate Mahalanobis distance
+        result.mahalanobisDist = mahalanobisDistance(data.X, data.Sigma);
+        
+        // Calculate hyperbolic speed
+        result.hyperSpeed = hyperbolicSpeed(data.sechCoeff, data.nu);
+        
+        // Check unit vectors consistency
+        result.unitVectorConsistent = checkUnitVectors(data.unitVectors, data.numUnitVectors);
+        
+        // Recommend medication
+        result.medicationRecommendation = recommendMedication(data.rbcInLung, data.wbcMixed, data.brainReverseFlow);
+        
+        return result;
+    }
+    
+    static void printDiagnosisResult(DiagnosisResult result) {
+        System.out.println("Diagnosis Results:");
+        
+        System.out.print("Velocity Field: ");
+        for (int i = 0; i < result.velocityField.size; i++) {
+            System.out.print(result.velocityField.data[i] + " ");
+        }
+        System.out.println();
+        
+        System.out.print("Linear Velocity: ");
+        for (int i = 0; i < result.linearVelocity.size; i++) {
+            System.out.printf("%.2f ", result.linearVelocity.data[i]);
+        }
+        System.out.println();
+        
+        System.out.printf("Mahalanobis Distance: %.2f\n", result.mahalanobisDist);
+        System.out.printf("Hyperbolic Speed: %.2f\n", result.hyperSpeed);
+        System.out.println("Unit Vector Consistent: " + result.unitVectorConsistent);
+        System.out.println("Medication Recommendation: " + result.medicationRecommendation);
+    }
+    
+    public static void main(String[] args) {
+        // Create sample patient data
+        PatientData patient = new PatientData();
+        
+        patient.kidneyBloodFlowNormal = true;
+        patient.diencephalonFlow = true;
+        
+        // Initialize U vector
+        patient.U = new Vector(3);
+        patient.U.data[0] = 1.0;
+        patient.U.data[1] = 2.0;
+        patient.U.data[2] = 3.0;
+        
+        // Initialize omega vector
+        patient.omega = new Vector(2);
+        patient.omega.data[0] = 0.5;
+        patient.omega.data[1] = 1.0;
+        
+        patient.a1 = 0.6;
+        
+        // Initialize F_V vector
+        patient.F_V = new Vector(2);
+        patient.F_V.data[0] = 0.8;
+        patient.F_V.data[1] = 0.9;
+        
+        patient.a2 = 0.4;
+        
+        // Initialize F_T vector
+        patient.F_T = new Vector(2);
+        patient.F_T.data[0] = 0.5;
+        patient.F_T.data[1] = 0.7;
+        
+        // Initialize X vector
+        patient.X = new Vector(2);
+        patient.X.data[0] = 1.5;
+        patient.X.data[1] = 2.0;
+        
+        // Initialize Sigma matrix
+        patient.Sigma = new Matrix(2, 2);
+        patient.Sigma.data[0][0] = 1.0;
+        patient.Sigma.data[0][1] = 0.0;
+        patient.Sigma.data[1][0] = 0.0;
+        patient.Sigma.data[1][1] = 1.0;
+        
+        patient.sechCoeff = -0.3;
+        patient.nu = 0.5;
+        
+        // Initialize unit vectors
+        patient.numUnitVectors = 2;
+        patient.unitVectors = new Vector[patient.numUnitVectors];
+        
+        for (int v = 0; v < patient.numUnitVectors; v++) {
+            patient.unitVectors[v] = new Vector(2);
+            patient.unitVectors[v].data[0] = 1.0;
+            patient.unitVectors[v].data[1] = 0.0;
+        }
+        
+        patient.rbcInLung = false;
+        patient.wbcMixed = false;
+        patient.brainReverseFlow = false;
+        
+        // Run diagnosis
+        DiagnosisResult result = diagnoseWithFourier(patient);
+        
+        // Print results
+        printDiagnosisResult(result);
+    }
+}
