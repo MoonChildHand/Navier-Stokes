@@ -1,0 +1,79 @@
+<?php
+class Block {
+    public $index;
+    public $timestamp;
+    public $data;
+    public $previousHash;
+    public $hash;
+
+    public function __construct($index, $timestamp, $data, $previousHash) {
+        $this->index = $index;
+        $this->timestamp = $timestamp;
+        $this->data = $data;
+        $this->previousHash = $previousHash;
+        $this->hash = $this->calculateHash();
+    }
+
+    private function calculateHash() {
+        return hash('sha256', $this->index . $this->timestamp . $this->data . $this->previousHash);
+    }
+}
+
+class NavierStokesWithFourier {
+    private $gridSize;
+    private $timeSteps;
+    private $viscosity;
+    private $density;
+    private $blockchain = [];
+
+    public function __construct($gridSize, $timeSteps, $viscosity, $density) {
+        $this->gridSize = $gridSize;
+        $this->timeSteps = $timeSteps;
+        $this->viscosity = $viscosity;
+        $this->density = $density;
+
+        // Create genesis block
+        $this->createGenesisBlock();
+    }
+
+    private function createGenesisBlock() {
+        $genesisBlock = new Block(0, $this->getCurrentTimestamp(), "Genesis Block", "0");
+        array_push($this->blockchain, $genesisBlock);
+    }
+
+    private function getCurrentTimestamp() {
+        return date("Y-m-d H:i:s");
+    }
+
+    public function addBlock($data) {
+        $previousBlock = end($this->blockchain);
+        $newBlock = new Block($previousBlock->index + 1, $this->getCurrentTimestamp(), $data, $previousBlock->hash);
+        array_push($this->blockchain, $newBlock);
+    }
+
+    public function printBlockchain() {
+        echo "Blockchain data:\n";
+        foreach ($this->blockchain as $block) {
+            echo "Block #{$block->index}\n";
+            echo "  Timestamp: {$block->timestamp}\n";
+            echo "  Hash: {$block->hash}\n";
+            echo "  Previous Hash: {$block->previousHash}\n";
+            echo "  Data: " . (strlen($block->data) > 50 ? substr($block->data, 0, 50) . "..." : $block->data) . "\n\n";
+        }
+    }
+}
+
+// Main function
+function main() {
+    $nsSimulator = new NavierStokesWithFourier(50, 100, 0.1, 1.0);
+
+    // Example simulation and block addition
+    for ($i = 1; $i <= 10; $i++) {
+        $nsSimulator->addBlock("Simulation Step Data $i");
+    }
+
+    $nsSimulator->printBlockchain();
+}
+
+main();
+?>
