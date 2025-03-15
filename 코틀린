@@ -1,0 +1,34 @@
+import java.security.MessageDigest
+
+class NavierStokesFourier(val gridSize: Int, val viscosity: Double, val density: Double) {
+    private val u: Array<DoubleArray> = Array(gridSize) { DoubleArray(gridSize) }
+
+    fun updateVelocityField() {
+        val laplacian = Array(gridSize) { DoubleArray(gridSize) }
+
+        for (i in 1 until gridSize - 1) {
+            for (j in 1 until gridSize - 1) {
+                laplacian[i][j] =
+                    u[i + 1][j] + u[i - 1][j] + u[i][j + 1] + u[i][j - 1] - 4 * u[i][j]
+            }
+        }
+
+        for (i in u.indices) {
+            for (j in u[i].indices) {
+                u[i][j] += viscosity * laplacian[i][j] / density
+            }
+        }
+    }
+
+    fun hashVelocityField(): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(u.contentDeepToString().toByteArray())
+        return hash.joinToString("") { "%02x".format(it) }
+    }
+}
+
+fun main() {
+    val nsf = NavierStokesFourier(50, 0.1, 1.0)
+    nsf.updateVelocityField()
+    println("Velocity Field Hash: ${nsf.hashVelocityField()}")
+}
