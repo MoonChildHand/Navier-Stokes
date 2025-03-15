@@ -1,0 +1,137 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <math.h>
+#include <complex.h>
+
+#define GRID_SIZE 50
+#define TIME_STEPS 100
+
+typedef struct {
+    int index;
+    char timestamp[20];
+    char *data;
+    char previous_hash[65];
+    char hash[65];
+} Block;
+
+typedef struct {
+    int grid_size;
+    int time_steps;
+    double viscosity;
+    double density;
+    double **u; // Velocity field (u direction)
+    double **v; // Velocity field (v direction)
+    Block *blockchain;
+    int blockchain_size;
+} NavierStokesWithFourier;
+
+// Hashing function (simplified placeholder for SHA-256)
+void hash_block(const char *block_data, char *output_hash) {
+    unsigned int hash = 0;
+    while (*block_data)
+        hash = (hash << 5) + *(block_data++);
+    sprintf(output_hash, "%x", hash);
+}
+
+// Get current timestamp
+void get_current_timestamp(char *timestamp) {
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(timestamp, 20, "%Y-%m-%d %H:%M:%S", t);
+}
+
+// Create genesis block
+void create_genesis_block(NavierStokesWithFourier *ns) {
+    Block genesis_block;
+    genesis_block.index = 0;
+    get_current_timestamp(genesis_block.timestamp);
+    genesis_block.data = strdup("Genesis Block");
+    strcpy(genesis_block.previous_hash, "0");
+    char block_data[256];
+    sprintf(block_data, "Genesis Block0");
+    hash_block(block_data, genesis_block.hash);
+
+    ns->blockchain_size = 1;
+    ns->blockchain = malloc(sizeof(Block) * ns->blockchain_size);
+    ns->blockchain[0] = genesis_block;
+}
+
+// Add a block to the blockchain
+void add_block(NavierStokesWithFourier *ns, const char *data) {
+    ns->blockchain_size++;
+    ns->blockchain = realloc(ns->blockchain, sizeof(Block) * ns->blockchain_size);
+
+    Block *previous_block = &ns->blockchain[ns->blockchain_size - 2];
+    Block *new_block = &ns->blockchain[ns->blockchain_size - 1];
+
+    new_block->index = previous_block->index + 1;
+    get_current_timestamp(new_block->timestamp);
+    new_block->data = strdup(data);
+    strcpy(new_block->previous_hash, previous_block->hash);
+
+    char block_data[512];
+    sprintf(block_data, "%d%s%s%s", new_block->index, new_block->timestamp, new_block->data, new_block->previous_hash);
+    hash_block(block_data, new_block->hash);
+}
+
+// Initialize Navier-Stokes simulator
+void init_navier_stokes(NavierStokesWithFourier *ns, int grid_size, int time_steps, double viscosity, double density) {
+    ns->grid_size = grid_size;
+    ns->time_steps = time_steps;
+    ns->viscosity = viscosity;
+    ns->density = density;
+
+    ns->u = malloc(grid_size * sizeof(double *));
+    ns->v = malloc(grid_size * sizeof(double *));
+    for (int i = 0; i < grid_size; i++) {
+        ns->u[i] = calloc(grid_size, sizeof(double));
+        ns->v[i] = calloc(grid_size, sizeof(double));
+    }
+
+    create_genesis_block(ns);
+}
+
+// Free resources
+void free_navier_stokes(NavierStokesWithFourier *ns) {
+    for (int i = 0; i < ns->grid_size; i++) {
+        free(ns->u[i]);
+        free(ns->v[i]);
+    }
+    free(ns->u);
+    free(ns->v);
+
+    for (int i = 0; i < ns->blockchain_size; i++) {
+        free(ns->blockchain[i].data);
+    }
+    free(ns->blockchain);
+}
+
+// Print blockchain
+void print_blockchain(NavierStokesWithFourier *ns) {
+    printf("Blockchain data:\n");
+    for (int i = 0; i < ns->blockchain_size; i++) {
+        Block *block = &ns->blockchain[i];
+        printf("Block #%d\n", block->index);
+        printf("  Timestamp: %s\n", block->timestamp);
+        printf("  Hash: %s\n", block->hash);
+        printf("  Previous Hash: %s\n", block->previous_hash);
+        printf("  Data: %.50s...\n\n", block->data);
+    }
+}
+
+int main() {
+    NavierStokesWithFourier ns_simulator;
+    init_navier_stokes(&ns_simulator, GRID_SIZE, TIME_STEPS, 0.1, 1.0);
+
+    // Example simulation and block addition
+    for (int i = 0; i < 10; i++) {
+        add_block(&ns_simulator, "Simulation Step Data");
+    }
+
+    print_blockchain(&ns_simulator);
+    free_navier_stokes(&ns_simulator);
+
+    return 0;
+}
