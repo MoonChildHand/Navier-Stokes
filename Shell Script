@@ -1,44 +1,67 @@
 #!/bin/bash
 
-GRID_SIZE=50
-VISCOSITY=0.1
-DENSITY=1.0
-
-# Initialize velocity field
-declare -A u
-
-# Function to update velocity field
-update_velocity_field() {
-  declare -A laplacian
-  for i in $(seq 2 $((GRID_SIZE - 1))); do
-    for j in $(seq 2 $((GRID_SIZE - 1))); do
-      laplacian[$i,$j]=$((
-        ${u[$((i + 1)),$j)]:-0} + ${u[$((i - 1)),$j)]:-0} + ${u[$i,$((j + 1))]:-0} + ${u[$i,$((j - 1))]:-0} - 4 * ${u[$i,$j]:-0}
-      ))
-    done
-  done
-
-  for i in $(seq 1 $GRID_SIZE); do
-    for j in $(seq 1 $GRID_SIZE); do
-      u[$i,$j]=$(( ${u[$i,$j]:-0} + VISCOSITY * ${laplacian[$i,$j]:-0} / DENSITY ))
-    done
-  done
+# Function to calculate SHA-256 hash
+hash_block() {
+  echo -n "$1" | sha256sum | awk '{print $1}'
 }
 
-# Function to hash velocity field
-hash_velocity_field() {
-  data=""
-  for i in $(seq 1 $GRID_SIZE); do
-    for j in $(seq 1 $GRID_SIZE); do
-      data+=${u[$i,$j]:-0}
-    done
-  done
-  echo -n "$data" | sha256sum | awk '{print $1}'
+# Get current timestamp
+get_current_timestamp() {
+  date +"%Y-%m-%d %H:%M:%S"
 }
 
-# Run simulation
-update_velocity_field
+# Create genesis block
+create_genesis_block() {
+  GENESIS_DATA="Genesis Block"
+  GENESIS_TIMESTAMP=$(get_current_timestamp)
+  GENESIS_HASH=$(hash_block "${GENESIS_DATA}0")
+  echo "0|${GENESIS_TIMESTAMP}|${GENESIS_DATA}|0|${GENESIS_HASH}" >> blockchain.txt
+}
 
-# Output hash
-hash=$(hash_velocity_field)
-echo "Velocity Field Hash: $hash"
+# Add a block to the blockchain
+add_block() {
+  PREVIOUS_BLOCK=$(tail -n 1 blockchain.txt)
+  PREVIOUS_INDEX=$(echo "$PREVIOUS_BLOCK" | awk -F '|' '{print $1}')
+  PREVIOUS_HASH=$(echo "$PREVIOUS_BLOCK" | awk -F '|' '{print $5}')
+
+  NEW_INDEX=$((PREVIOUS_INDEX + 1))
+  NEW_TIMESTAMP=$(get_current_timestamp)
+  NEW_DATA=$1
+  NEW_HASH=$(hash_block "${NEW_INDEX}${NEW_TIMESTAMP}${NEW_DATA}${PREVIOUS_HASH}")
+  
+  echo "${NEW_INDEX}|${NEW_TIMESTAMP}|${NEW_DATA}|${PREVIOUS_HASH}|${NEW_HASH}" >> blockchain.txt
+}
+
+# Print the blockchain
+print_blockchain() {
+  echo "Blockchain data:"
+  while IFS= read -r line; do
+    IFS='|' read -ra BLOCK <<< "$line"
+    echo "Block #${BLOCK[0]}"
+    echo "  Timestamp: ${BLOCK[1]}"
+    echo "  Data: ${BLOCK[2]}"
+    echo "  Previous Hash: ${BLOCK[3]}"
+    echo "  Hash: ${BLOCK[4]}"
+    echo
+  done < blockchain.txt
+}
+
+# Main script
+main() {
+  # Initialize blockchain
+  if [ ! -f blockchain.txt ]; then
+    touch blockchain.txt
+    create_genesis_block
+  fi
+
+  # Add example blocks
+  for i in {1..10}; do
+    add_block "Simulation Step Data ${i}"
+  done
+
+  # Print blockchain
+  print_blockchain
+}
+
+# Execute the script
+main
