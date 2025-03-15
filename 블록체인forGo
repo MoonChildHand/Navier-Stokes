@@ -1,0 +1,113 @@
+package main
+
+import (
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "strconv"
+    "strings"
+    "time"
+)
+
+type Block struct {
+    Index        int
+    Timestamp    string
+    Data         string
+    PreviousHash string
+    Hash         string
+}
+
+type NavierStokesWithFourier struct {
+    GridSize     int
+    TimeSteps    int
+    Viscosity    float64
+    Density      float64
+    U            [][]float64
+    V            [][]float64
+    Blockchain   []Block
+}
+
+// Function to compute hash for a block
+func hashBlock(blockData string) string {
+    hash := sha256.Sum256([]byte(blockData))
+    return hex.EncodeToString(hash[:])
+}
+
+// Function to get the current timestamp
+func getCurrentTimestamp() string {
+    return time.Now().Format("2006-01-02 15:04:05")
+}
+
+// Create the genesis block
+func (ns *NavierStokesWithFourier) createGenesisBlock() {
+    genesisBlock := Block{
+        Index:        0,
+        Timestamp:    getCurrentTimestamp(),
+        Data:         "Genesis Block",
+        PreviousHash: "0",
+        Hash:         hashBlock("Genesis Block0"),
+    }
+    ns.Blockchain = append(ns.Blockchain, genesisBlock)
+}
+
+// Add a new block to the blockchain
+func (ns *NavierStokesWithFourier) addBlock(data string) {
+    previousBlock := ns.Blockchain[len(ns.Blockchain)-1]
+
+    blockData := fmt.Sprintf("%d%s%s%s", previousBlock.Index+1, getCurrentTimestamp(), data, previousBlock.Hash)
+    newBlock := Block{
+        Index:        previousBlock.Index + 1,
+        Timestamp:    getCurrentTimestamp(),
+        Data:         data,
+        PreviousHash: previousBlock.Hash,
+        Hash:         hashBlock(blockData),
+    }
+
+    ns.Blockchain = append(ns.Blockchain, newBlock)
+}
+
+// Initialize the simulator
+func NewNavierStokesWithFourier(gridSize, timeSteps int, viscosity, density float64) *NavierStokesWithFourier {
+    u := make([][]float64, gridSize)
+    v := make([][]float64, gridSize)
+    for i := 0; i < gridSize; i++ {
+        u[i] = make([]float64, gridSize)
+        v[i] = make([]float64, gridSize)
+    }
+
+    ns := &NavierStokesWithFourier{
+        GridSize:  gridSize,
+        TimeSteps: timeSteps,
+        Viscosity: viscosity,
+        Density:   density,
+        U:         u,
+        V:         v,
+    }
+    ns.createGenesisBlock()
+    return ns
+}
+
+// Print blockchain data
+func (ns *NavierStokesWithFourier) printBlockchain() {
+    fmt.Println("Blockchain data:")
+    for _, block := range ns.Blockchain {
+        fmt.Printf("Block #%d\n", block.Index)
+        fmt.Printf("  Timestamp: %s\n", block.Timestamp)
+        fmt.Printf("  Hash: %s\n", block.Hash)
+        fmt.Printf("  Previous Hash: %s\n", block.PreviousHash)
+        fmt.Printf("  Data: %.50s...\n\n", block.Data)
+    }
+}
+
+func main() {
+    ns := NewNavierStokesWithFourier(50, 100, 0.1, 1.0)
+
+    // Example simulation and block addition
+    for i := 0; i < 10; i++ {
+        data := fmt.Sprintf("Simulation Step Data %d", i)
+        ns.addBlock(data)
+    }
+
+    ns.printBlockchain()
+}
+
