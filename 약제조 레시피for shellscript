@@ -1,123 +1,132 @@
 #!/bin/bash
 
-# Note: Shell script is not optimal for complex mathematical operations and data structures
-# This is a simplified implementation focusing on the flow rather than the actual calculations
+# 데이터 구조체와 유사한 배열 정의
+declare -A patient_data
+patient_data=(
+    ["kidney_blood_flow_normal"]="true"
+    ["diencephalon_flow"]="true"
+    ["filtered_components"]="true"
+    ["hormone_levels"]="true"
+    ["rbc_in_lung"]="false"
+    ["wbc_mixed"]="false"
+    ["brain_reverse_flow"]="false"
+    ["protein_intake"]="true"
+    ["rbc_wbc_ratio"]="1"
+    ["mineral_intake"]="true"
+    ["rehabilitation_needed"]="false"
+    ["neural_disorder"]="false"
+)
 
-echo "Medical Diagnosis System - Shell Script Implementation"
-echo "----------------------------------------------------"
+unit_vectors=([[1.0, 0.0], [1.0, 0.0]])
 
-# Function to simulate Navier-Stokes transform
-navier_stokes_transform() {
-  echo "Performing Navier-Stokes transform calculation..."
-  echo "Velocity field: 2.00 + 0.00i 3.00 + 0.00i"  # Simulated output
+# 함수 정의
+check_conditions() {
+    if [[ "${patient_data["kidney_blood_flow_normal"]}" == "false" ]]; then
+        echo "콩팥과 달팽이관 간 모세혈관 혈액순환 이상"
+        return
+    fi
+    if [[ "${patient_data["diencephalon_flow"]}" == "false" ]]; then
+        echo "뇌수 흐름 방향 이상"
+        return
+    fi
+    echo "정상"
 }
 
-# Function to simulate linear combination transform
-linear_combination_transform() {
-  a1=$1
-  a2=$2
-  echo "Performing linear combination transform with coefficients $a1 and $a2..."
-  echo "Linear velocity: 0.73 0.83"  # Simulated output
+check_circulatory_and_digestive_system() {
+    if [[ "${patient_data["filtered_components"]}" == "false" ]]; then
+        echo "간에서 여과된 성분이 췌장으로 전달되지 않음"
+        return
+    fi
+    if [[ "${patient_data["hormone_levels"]}" == "false" ]]; then
+        echo "대뇌 호르몬 수치 이상"
+        return
+    fi
+    echo "정상"
 }
 
-# Function to simulate Mahalanobis distance
-mahalanobis_distance() {
-  echo "Calculating Mahalanobis distance..."
-  echo "5.25"  # Simulated output
+check_blood_cells() {
+    if [[ "${patient_data["rbc_in_lung"]}" == "true" ]]; then
+        echo "폐순환에서 적혈구 발견 - 백혈병 가능성"
+        return
+    fi
+    if [[ "${patient_data["wbc_mixed"]}" == "true" ]]; then
+        echo "백혈구 섞임 - 열전도율이 높은 액체 복용 권장"
+        return
+    fi
+    if [[ "${patient_data["brain_reverse_flow"]}" == "true" ]]; then
+        echo "뇌수 역류 - 억제제 및 소화제 복용 권장"
+        return
+    fi
+    echo "정상"
 }
 
-# Function to calculate hyperbolic speed
-hyperbolic_speed() {
-  sech_coeff=$1
-  nu=$2
-  # Basic approximation using bc for calculations
-  sech_val=$(echo "scale=6; 2/(e($nu) + e(-$nu))" | bc -l)
-  result=$(echo "scale=6; $sech_coeff * $sech_val * $sech_val" | bc -l)
-  printf "%.2f\n" $(echo "$result" | bc -l)
+checkUnitVectors() {
+    # 단위 벡터 유지 확인 (단순 비교로 대체)
+    if [[ "${unit_vectors[0]}" == "${unit_vectors[1]}" ]]; then
+        echo "정상"
+    else
+        echo "불일치"
+    fi
 }
 
-# Function to check unit vectors (simplified)
-check_unit_vectors() {
-  echo "Checking if vectors are unit vectors..."
-  echo "true"  # Simulated output
+check_reproductive_system() {
+    if [[ "${patient_data["protein_intake"]}" == "false" ]]; then
+        echo "동물성 단백질 섭취 필요"
+        return
+    fi
+    if [[ "${patient_data["rbc_wbc_ratio"]}" -ne 1 ]]; then
+        echo "적혈구와 백혈구의 비율 불균형"
+        return
+    fi
+    echo "정상"
 }
 
-# Function to recommend medication
+check_digestion_nutrition() {
+    if [[ "${patient_data["mineral_intake"]}" == "false" ]]; then
+        echo "식물성 무기질 섭취 부족"
+        return
+    fi
+    echo "정상"
+}
+
 recommend_medication() {
-  rbc_in_lung=$1
-  wbc_mixed=$2
-  brain_reverse_flow=$3
-  
-  if [ "$rbc_in_lung" = true ]; then
-    echo "전도체를 가진 약물 복용"  # Immune boosting
-  elif [ "$wbc_mixed" = true ]; then
-    echo "열전도율이 높은 액체 물질 복용"  # WBC mixing
-  elif [ "$brain_reverse_flow" = true ]; then
-    echo "소화제, 여과제 등 억제류 마취과 약물 복용"  # Brain reverse flow
-  else
+    if [[ "${patient_data["rbc_in_lung"]}" == "true" ]]; then
+        echo "전도체를 가진 약물 복용"
+        return
+    fi
+    if [[ "${patient_data["wbc_mixed"]}" == "true" ]]; then
+        echo "열전도율이 높은 액체 복용"
+        return
+    fi
+    if [[ "${patient_data["brain_reverse_flow"]}" == "true" ]]; then
+        echo "억제제 및 소화제 복용 권장"
+        return
+    fi
     echo "추천되는 약물 없음"
-  fi
 }
 
-# Main diagnostic function
+check_rehabilitation() {
+    if [[ "${patient_data["rehabilitation_needed"]}" == "true" ]]; then
+        echo "10년 이상의 재활 필요"
+        return
+    fi
+    if [[ "${patient_data["neural_disorder"]}" == "true" ]]; then
+        echo "신경계 문제 확인 필요"
+        return
+    fi
+    echo "정상"
+}
+
 diagnose_with_fourier() {
-  kidney_blood_flow_normal=$1
-  diencephalon_flow=$2
-  rbc_in_lung=$3
-  wbc_mixed=$4
-  brain_reverse_flow=$5
-  sech_coeff=$6
-  nu=$7
-  
-  # Check initial conditions
-  if [ "$kidney_blood_flow_normal" != true ] || [ "$diencephalon_flow" != true ]; then
-    echo "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상"
-    echo "Medication Recommendation: 초기 조건 불만족"
-    return 1
-  fi
-  
-  # Calculate velocity field using Navier-Stokes
-  velocity_field=$(navier_stokes_transform)
-  
-  # Calculate linear velocity combination
-  linear_velocity=$(linear_combination_transform 0.6 0.4)
-  
-  # Calculate Mahalanobis distance
-  mahalanobis_dist=$(mahalanobis_distance)
-  
-  # Calculate hyperbolic speed
-  hyper_speed=$(hyperbolic_speed $sech_coeff $nu)
-  
-  # Check unit vectors consistency
-  unit_vector_consistent=$(check_unit_vectors)
-  
-  # Recommend medication
-  medication_recommendation=$(recommend_medication $rbc_in_lung $wbc_mixed $brain_reverse_flow)
-  
-  # Print results
-  echo "Diagnosis Results:"
-  echo "Velocity Field: $velocity_field"
-  echo "Linear Velocity: $linear_velocity"
-  echo "Mahalanobis Distance: $mahalanobis_dist"
-  echo "Hyperbolic Speed: $hyper_speed"
-  echo "Unit Vector Consistent: $unit_vector_consistent"
-  echo "Medication Recommendation: $medication_recommendation"
+    echo "Initial Conditions: $(check_conditions)"
+    echo "Circulatory and Digestive System: $(check_circulatory_and_digestive_system)"
+    echo "Blood Cells: $(check_blood_cells)"
+    echo "Unit Vector Consistency: $(checkUnitVectors)"
+    echo "Reproductive System: $(check_reproductive_system)"
+    echo "Digestion & Nutrition: $(check_digestion_nutrition)"
+    echo "Medication Recommendation: $(recommend_medication)"
+    echo "Rehabilitation: $(check_rehabilitation)"
 }
 
-# Main function
-main() {
-  # Patient data parameters
-  kidney_blood_flow_normal=true
-  diencephalon_flow=true
-  rbc_in_lung=false
-  wbc_mixed=false
-  brain_reverse_flow=false
-  sech_coeff=-0.3
-  nu=0.5
-  
-  # Run diagnosis
-  diagnose_with_fourier $kidney_blood_flow_normal $diencephalon_flow $rbc_in_lung $wbc_mixed $brain_reverse_flow $sech_coeff $nu
-}
-
-# Execute main function
-main
+# 병질 구분 결과 출력
+diagnose_with_fourier
