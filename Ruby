@@ -1,0 +1,35 @@
+require 'digest'
+
+class NavierStokesFourier
+  def initialize(grid_size, viscosity, density)
+    @u = Array.new(grid_size) { Array.new(grid_size, 0.0) }
+    @viscosity = viscosity
+    @density = density
+  end
+
+  def update_velocity_field
+    grid_size = @u.size
+    laplacian = Array.new(grid_size) { Array.new(grid_size, 0.0) }
+
+    for i in 1...(grid_size - 1)
+      for j in 1...(grid_size - 1)
+        laplacian[i][j] =
+          @u[i + 1][j] + @u[i - 1][j] + @u[i][j + 1] + @u[i][j - 1] - 4 * @u[i][j]
+      end
+    end
+
+    for i in 0...grid_size
+      for j in 0...grid_size
+        @u[i][j] += @viscosity * laplacian[i][j] / @density
+      end
+    end
+  end
+
+  def hash_velocity_field
+    Digest::SHA256.hexdigest(@u.flatten.join(","))
+  end
+end
+
+nsf = NavierStokesFourier.new(50, 0.1, 1.0)
+nsf.update_velocity_field
+puts "Velocity Field Hash: #{nsf.hash_velocity_field}"
