@@ -1,0 +1,273 @@
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+
+public class NavierStokesWithFourier {
+    private int gridSize;
+    private int timeSteps;
+    private double viscosity;
+    private double density;
+    private double[][] u;  // Velocity field (u direction)
+    private double[][] v;  // Velocity field (v direction)
+    private List<Block> blockchain;
+
+    // Block class for blockchain
+    private static class Block {
+        int index;
+        String timestamp;
+        String data;
+        String previousHash;
+        String hash;
+
+        public Block(int index, String timestamp, String data, String previousHash) {
+            this.index = index;
+            this.timestamp = timestamp;
+            this.data = data;
+            this.previousHash = previousHash;
+        }
+    }
+
+    // Complex number class for FFT
+    private static class Complex {
+        double real;
+        double imag;
+
+        public Complex(double real, double imag) {
+            this.real = real;
+            this.imag = imag;
+        }
+
+        public Complex multiply(Complex other) {
+            return new Complex(
+                this.real * other.real - this.imag * other.imag,
+                this.real * other.imag + this.imag * other.real
+            );
+        }
+
+        public double abs() {
+            return Math.sqrt(real * real + imag * imag);
+        }
+
+        @Override
+        public String toString() {
+            return real + " + " + imag + "i";
+        }
+    }
+
+    public NavierStokesWithFourier(int gridSize, int timeSteps, double viscosity, double density) {
+        this.gridSize = gridSize;
+        this.timeSteps = timeSteps;
+        this.viscosity = viscosity;
+        this.density = density;
+        
+        // Initialize velocity fields
+        this.u = new double[gridSize][gridSize];
+        this.v = new double[gridSize][gridSize];
+        
+        // Initialize blockchain
+        this.blockchain = new ArrayList<>();
+        createGenesisBlock();
+    }
+
+    private void createGenesisBlock() {
+        Block genesisBlock = new Block(0, getCurrentTimestamp(), "Genesis Block", "0");
+        genesisBlock.hash = hashBlock("Genesis Block" + "0");
+        blockchain.add(genesisBlock);
+    }
+
+    private String getCurrentTimestamp() {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        return now.format(formatter);
+    }
+
+    private String hashBlock(String blockData) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(blockData.getBytes());
+            
+            // Convert byte array to hexadecimal string
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    public void addBlock(String data) {
+        Block previousBlock = blockchain.get(blockchain.size() - 1);
+        Block newBlock = new Block(
+            previousBlock.index + 1,
+            getCurrentTimestamp(),
+            data,
+            previousBlock.hash
+        );
+        newBlock.hash = hashBlock(newBlock.index + newBlock.timestamp + newBlock.data + newBlock.previousHash);
+        blockchain.add(newBlock);
+    }
+
+    public Complex[][] applyFourierTransform(double[][] field) {
+        // Simple implementation of 2D FFT
+        // In practice, you would use a library like JTransforms
+        Complex[][] result = new Complex[gridSize][gridSize];
+        
+        // Initialize with original values
+        for (int i = 0; i < gridSize; i++) {
+            for (int j = 0; j < gridSize; j++) {
+                result[i][j] = new Complex(field[i][j], 0);
+            }
+        }
+        
+        // Note: This is a simplified FFT implementation
+        // In a real application, use a proper FFT library
+        
+        return result;
+    }
+
+    public void updateVelocityField() {
+        for (int t = 0; t < timeSteps; t++) {
+            double[][] laplacianU = new double[gridSize][gridSize];
+            double[][] laplacianV = new double[gridSize][gridSize];
+            
+            for (int i = 0; i < gridSize; i++) {
+                for (int j = 0; j < gridSize; j++) {
+                    int ip1 = (i + 1) % gridSize;
+                    int im1 = (i - 1 + gridSize) % gridSize;
+                    int jp1 = (j + 1) % gridSize;
+                    int jm1 = (j - 1 + gridSize) % gridSize;
+                    
+                    laplacianU[i][j] = u[ip1][j] + u[im1][j] + u[i][jp1] + u[i][jm1] - 4 * u[i][j];
+                    laplacianV[i][j] = v[ip1][j] + v[im1][j] + v[i][jp1] + v[i][jm1] - 4 * v[i][j];
+                }
+            }
+            
+            // Navier-Stokes time update
+            for (int i = 0; i < gridSize; i++) {
+                for (int j = 0; j < gridSize; j++) {
+                    u[i][j] += viscosity * laplacianU[i][j] / density;
+                    v[i][j] += viscosity * laplacianV[i][j] / density;
+                }
+            }
+        }
+    }
+
+    public String analyzeVelocityField() {
+        Complex[][] uFft = applyFourierTransform(u);
+        Complex[][] vFft = applyFourierTransform(v);
+        
+        // Calculate means
+        double uMean = 0.0, vMean = 0.0;
+        for (int i = 0; i < gridSize; i++) {
+            for (int j = 0; j < gridSize; j++) {
+                uMean += u[i][j];
+                vMean += v[i][j];
+            }
+        }
+        uMean /= (gridSize * gridSize);
+        vMean /= (gridSize * gridSize);
+        
+        // Calculate covariance matrix
+        double covUU = 0.0, covUV = 0.0, covVV = 0.0;
+        for (int i = 0; i < gridSize; i++) {
+            for (int j = 0; j < gridSize; j++) {
+                covUU += (u[i][j] - uMean) * (u[i][j] - uMean);
+                covUV += (u[i][j] - uMean) * (v[i][j] - vMean);
+                covVV += (v[i][j] - vMean) * (v[i][j] - vMean);
+            }
+        }
+        covUU /= (gridSize * gridSize - 1);
+        covUV /= (gridSize * gridSize - 1);
+        covVV /= (gridSize * gridSize - 1);
+        
+        // Calculate Mahalanobis distance
+        double det = covUU * covVV - covUV * covUV;
+        double invUU = covVV / det;
+        double invUV = -covUV / det;
+        double invVV = covUU / det;
+        
+        double mahalanobisDistance = uMean * uMean * invUU + 
+                                   2 * uMean * vMean * invUV + 
+                                   vMean * vMean * invVV;
+        
+        // Calculate hyperbolic velocity (simplified)
+        Complex[][] hyperbolicVelocityU = new Complex[gridSize][gridSize];
+        for (int i = 0; i < gridSize; i++) {
+            for (int j = 0; j < gridSize; j++) {
+                Complex value = uFft[i][j];
+                double coshValue = Math.cosh(Math.PI * value.abs());
+                hyperbolicVelocityU[i][j] = new Complex(
+                    -value.imag / (coshValue * coshValue),
+                    value.real / (coshValue * coshValue)
+                );
+            }
+        }
+        
+        // Create JSON-like string for results
+        StringBuilder result = new StringBuilder();
+        result.append("{ \"mahalanobis_distance\": ").append(mahalanobisDistance);
+        result.append(", \"hyperbolic_velocity_u\": [...]"); // Simplified for brevity
+        result.append(", \"fourier_transform_u\": [...]");   // Simplified for brevity
+        result.append(", \"fourier_transform_v\": [...]");   // Simplified for brevity
+        result.append(" }");
+        
+        return result.toString();
+    }
+
+    public void simulateAndRecord() {
+        for (int i = 0; i < 10; i++) {
+            updateVelocityField();
+            String analysisResults = analyzeVelocityField();
+            
+            // Calculate average FFT magnitude for time
+            Complex[][] uFft = applyFourierTransform(u);
+            double fftSum = 0.0;
+            for (int x = 0; x < gridSize; x++) {
+                for (int y = 0; y < gridSize; y++) {
+                    fftSum += uFft[x][y].abs();
+                }
+            }
+            double navierStokesTime = 1.0 / (fftSum / (gridSize * gridSize));
+            
+            // Create JSON-like string for block data
+            StringBuilder blockData = new StringBuilder();
+            blockData.append("{ \"velocity_field_u\": [...], ");      // Simplified for brevity
+            blockData.append("\"velocity_field_v\": [...], ");        // Simplified for brevity
+            blockData.append("\"analysis_results\": ").append(analysisResults).append(", ");
+            blockData.append("\"navier_stokes_time\": ").append(navierStokesTime);
+            blockData.append(" }");
+            
+            addBlock(blockData.toString());
+        }
+    }
+
+    public void printBlockchain() {
+        System.out.println("Blockchain data:");
+        for (Block block : blockchain) {
+            System.out.println("Block #" + block.index);
+            System.out.println("  Timestamp: " + block.timestamp);
+            System.out.println("  Hash: " + block.hash);
+            System.out.println("  Previous Hash: " + block.previousHash);
+            String displayData = block.data.length() > 50 ? 
+                block.data.substring(0, 50) + "..." : block.data;
+            System.out.println("  Data: " + displayData);
+            System.out.println();
+        }
+    }
+
+    public static void main(String[] args) {
+        NavierStokesWithFourier nsSimulator = new NavierStokesWithFourier(50, 100, 0.1, 1.0);
+        nsSimulator.simulateAndRecord();
+        nsSimulator.printBlockchain();
+    }
+}
