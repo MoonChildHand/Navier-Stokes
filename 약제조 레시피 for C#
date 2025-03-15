@@ -1,46 +1,242 @@
 using System;
 using System.Numerics;
+using System.Collections.Generic;
+using System.Linq;
 
-public class Diagnosis
+namespace MedicalDiagnostics
 {
-    // 나비에-스토크스 기반 속도장 계산 (C#에서는 FFT 라이브러리 필요)
-    public static Complex NavierStokesTransform(Complex[] U, Complex omega)
+    class Program
     {
-        // FFT 라이브러리를 사용하여 구현해야 함 (예: Math.NET Numerics)
-        // 여기서는 간단한 예시로 대체
-        return U[0] / (-omega.Imaginary);
-    }
-
-    // 선형결합 관계 계산
-    public static Complex LinearCombinationTransform(double a1, Complex F_V, double a2, Complex F_T)
-    {
-        return a1 * F_V + a2 * F_T;
-    }
-
-    // 마할라노비스 거리 계산 (C#에서는 행렬 연산 라이브러리 필요)
-    public static double MahalanobisDistance(double[] X, double[,] Sigma)
-    {
-        // 행렬 연산 라이브러리를 사용하여 구현해야 함 (예: Math.NET Numerics)
-        // 여기서는 간단한 예시로 대체
-        return X[0] * X[0] / Sigma[0, 0] + X[1] * X[1] / Sigma[1, 1];
-    }
-
-    // 쌍곡선 속력 계산
-    public static double HyperbolicSpeed(double sechCoeff, double nu)
-    {
-        return -sechCoeff * Math.Pow(1 / Math.Cosh(nu), 2);
-    }
-
-    // 단위 벡터 유지 확인 (C#에서는 벡터 연산 라이브러리 필요)
-    public static bool CheckUnitVectors(double[][] vectors)
-    {
-        // 벡터 연산 라이브러리를 사용하여 구현해야 함
-        // 여기서는 간단한 예시로 대체
-        return vectors[0][0] == vectors[1][0] && vectors[0][1] == vectors[1][1];
-    }
-
-    // 의약품 추천 함수
-    public static string RecommendMedication(bool rbcInLung, bool wbcMixed, bool brainReverseFlow)
-    {
-        if (rbcInLung)
+        // Navier-Stokes based velocity field calculation
+        static Complex[] NavierStokesTransform(double[] U, double[] omega)
         {
+            Complex[] result = new Complex[omega.Length];
+            for (int i = 0; i < omega.Length; i++)
+            {
+                result[i] = U[i % U.Length] / new Complex(0, omega[i]);
+            }
+            return result;
+        }
+
+        // Linear combination calculation
+        static double[] LinearCombinationTransform(double a1, double[] F_V, double a2, double[] F_T)
+        {
+            double[] result = new double[F_V.Length];
+            for (int i = 0; i < F_V.Length; i++)
+            {
+                result[i] = a1 * F_V[i] + a2 * F_T[i];
+            }
+            return result;
+        }
+
+        // Mahalanobis distance calculation
+        static double MahalanobisDistance(double[] X, double[,] Sigma)
+        {
+            int n = X.Length;
+            
+            // Create inverse of Sigma (simplified - assuming diagonal matrix)
+            double[,] invSigma = new double[n, n];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    invSigma[i, j] = (i == j) ? 1.0 / Sigma[i, j] : 0;
+                }
+            }
+            
+            // Calculate X.T * inv_Sigma * X
+            double result = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    result += X[i] * invSigma[i, j] * X[j];
+                }
+            }
+            return result;
+        }
+
+        // Hyperbolic speed calculation
+        static double HyperbolicSpeed(double sech_coeff, double nu)
+        {
+            return -sech_coeff * Math.Pow(1.0 / Math.Cosh(nu), 2);
+        }
+
+        // Check if vectors are unit vectors
+        static bool CheckUnitVectors(List<double[]> vectors)
+        {
+            if (vectors.Count == 0) return true;
+            
+            // Normalize the first vector
+            double[] firstVector = vectors[0];
+            double norm = Math.Sqrt(firstVector.Sum(x => x * x));
+            double[] unitVector = firstVector.Select(x => x / norm).ToArray();
+            
+            // Check all vectors against the first unit vector
+            foreach (var vector in vectors)
+            {
+                double vectorNorm = Math.Sqrt(vector.Sum(x => x * x));
+                double[] normalizedVector = vector.Select(x => x / vectorNorm).ToArray();
+                
+                for (int i = 0; i < normalizedVector.Length; i++)
+                {
+                    if (Math.Abs(normalizedVector[i] - unitVector[i]) > 1e-10)
+                    {
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+
+        // Medication recommendation function
+        static string RecommendMedication(bool rbc_in_lung, bool wbc_mixed, bool brain_reverse_flow)
+        {
+            if (rbc_in_lung)
+            {
+                return "전도체를 가진 약물 복용";  // Immune boosting
+            }
+            else if (wbc_mixed)
+            {
+                return "열전도율이 높은 액체 물질 복용";  // WBC mixing
+            }
+            else if (brain_reverse_flow)
+            {
+                return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
+            }
+            else
+            {
+                return "추천되는 약물 없음";
+            }
+        }
+
+        // Patient data class
+        class PatientData
+        {
+            public bool KidneyBloodFlowNormal { get; set; }
+            public bool DiencephalonFlow { get; set; }
+            public double[] U { get; set; }
+            public double[] Omega { get; set; }
+            public double A1 { get; set; }
+            public double[] F_V { get; set; }
+            public double A2 { get; set; }
+            public double[] F_T { get; set; }
+            public double[] X { get; set; }
+            public double[,] Sigma { get; set; }
+            public double SechCoeff { get; set; }
+            public double Nu { get; set; }
+            public List<double[]> UnitVectors { get; set; }
+            public bool RbcInLung { get; set; }
+            public bool WbcMixed { get; set; }
+            public bool BrainReverseFlow { get; set; }
+        }
+
+        // Diagnosis result class
+        class DiagnosisResult
+        {
+            public Complex[] VelocityField { get; set; }
+            public double[] LinearVelocity { get; set; }
+            public double MahalanobisDist { get; set; }
+            public double HyperSpeed { get; set; }
+            public bool UnitVectorConsistent { get; set; }
+            public string MedicationRecommendation { get; set; }
+            
+            public override string ToString()
+            {
+                string result = "Diagnosis Results:\n";
+                
+                result += "Velocity Field: ";
+                if (VelocityField != null)
+                {
+                    foreach (var v in VelocityField)
+                    {
+                        result += $"{v.Real:F2} + {v.Imaginary:F2}i ";
+                    }
+                }
+                result += "\n";
+                
+                result += "Linear Velocity: ";
+                if (LinearVelocity != null)
+                {
+                    foreach (var v in LinearVelocity)
+                    {
+                        result += $"{v:F2} ";
+                    }
+                }
+                result += "\n";
+                
+                result += $"Mahalanobis Distance: {MahalanobisDist:F2}\n";
+                result += $"Hyperbolic Speed: {HyperSpeed:F2}\n";
+                result += $"Unit Vector Consistent: {UnitVectorConsistent}\n";
+                result += $"Medication Recommendation: {MedicationRecommendation}\n";
+                
+                return result;
+            }
+        }
+
+        // Main diagnosis function
+        static DiagnosisResult DiagnoseWithFourier(PatientData data)
+        {
+            DiagnosisResult result = new DiagnosisResult();
+            
+            // Check initial conditions
+            if (!(data.KidneyBloodFlowNormal && data.DiencephalonFlow))
+            {
+                Console.WriteLine("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상");
+                result.MedicationRecommendation = "초기 조건 불만족";
+                return result;
+            }
+            
+            // Navier-Stokes based velocity field calculation
+            result.VelocityField = NavierStokesTransform(data.U, data.Omega);
+            
+            // Linear combination calculation
+            result.LinearVelocity = LinearCombinationTransform(data.A1, data.F_V, data.A2, data.F_T);
+            
+            // Mahalanobis distance calculation
+            result.MahalanobisDist = MahalanobisDistance(data.X, data.Sigma);
+            
+            // Hyperbolic speed calculation
+            result.HyperSpeed = HyperbolicSpeed(data.SechCoeff, data.Nu);
+            
+            // Check unit vectors
+            result.UnitVectorConsistent = CheckUnitVectors(data.UnitVectors);
+            
+            // Medication recommendation
+            result.MedicationRecommendation = RecommendMedication(data.RbcInLung, data.WbcMixed, data.BrainReverseFlow);
+            
+            return result;
+        }
+
+        static void Main(string[] args)
+        {
+            // Create sample patient data
+            PatientData patientData = new PatientData
+            {
+                KidneyBloodFlowNormal = true,
+                DiencephalonFlow = true,
+                U = new double[] { 1.0, 2.0, 3.0 },
+                Omega = new double[] { 0.5, 1.0 },
+                A1 = 0.6,
+                F_V = new double[] { 0.8, 0.9 },
+                A2 = 0.4,
+                F_T = new double[] { 0.5, 0.7 },
+                X = new double[] { 1.5, 2.0 },
+                Sigma = new double[,] { { 1.0, 0.0 }, { 0.0, 1.0 } },
+                SechCoeff = -0.3,
+                Nu = 0.5,
+                UnitVectors = new List<double[]> { new double[] { 1.0, 0.0 }, new double[] { 1.0, 0.0 } },
+                RbcInLung = false,
+                WbcMixed = false,
+                BrainReverseFlow = false
+            };
+            
+            // Run diagnosis
+            DiagnosisResult result = DiagnoseWithFourier(patientData);
+            
+            // Print results
+            Console.WriteLine(result);
+        }
+    }
+}
