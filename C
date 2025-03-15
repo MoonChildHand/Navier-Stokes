@@ -1,0 +1,43 @@
+#include <stdio.h>
+#include <string.h>
+#include <openssl/sha.h>
+
+#define GRID_SIZE 50
+
+void update_velocity_field(double u[GRID_SIZE][GRID_SIZE], double viscosity, double density) {
+    double laplacian[GRID_SIZE][GRID_SIZE] = {0};
+
+    for (int i = 1; i < GRID_SIZE - 1; i++) {
+        for (int j = 1; j < GRID_SIZE - 1; j++) {
+            laplacian[i][j] =
+                u[i + 1][j] + u[i - 1][j] + u[i][j + 1] + u[i][j - 1] - 4 * u[i][j];
+        }
+    }
+
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            u[i][j] += viscosity * laplacian[i][j] / density;
+        }
+    }
+}
+
+void hash_velocity_field(double u[GRID_SIZE][GRID_SIZE], char output[65]) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256((unsigned char *)u, sizeof(u), hash);
+
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        sprintf(output + (i * 2), "%02x", hash[i]);
+    }
+}
+
+int main() {
+    double velocity_field[GRID_SIZE][GRID_SIZE] = {0};
+    update_velocity_field(velocity_field, 0.1, 1.0);
+
+    char hash_output[65];
+    hash_velocity_field(velocity_field, hash_output);
+    
+    printf("Velocity Field Hash: %s\n", hash_output);
+    
+    return 0;
+}
