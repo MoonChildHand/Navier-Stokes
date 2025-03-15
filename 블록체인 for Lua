@@ -1,0 +1,85 @@
+local sha256 = require("sha2").sha256 -- Requires an external library for SHA-256
+local os = require("os")
+
+-- Block structure
+local function create_block(index, timestamp, data, previous_hash)
+    local block = {
+        index = index,
+        timestamp = timestamp,
+        data = data,
+        previous_hash = previous_hash,
+        hash = sha256(index .. timestamp .. data .. previous_hash)
+    }
+    return block
+end
+
+-- NavierStokesWithFourier class
+local NavierStokesWithFourier = {}
+NavierStokesWithFourier.__index = NavierStokesWithFourier
+
+function NavierStokesWithFourier.new(grid_size, time_steps, viscosity, density)
+    local self = setmetatable({}, NavierStokesWithFourier)
+    self.grid_size = grid_size
+    self.time_steps = time_steps
+    self.viscosity = viscosity
+    self.density = density
+    self.u = {}
+    self.v = {}
+    self.blockchain = {}
+
+    -- Initialize velocity fields
+    for i = 1, grid_size do
+        self.u[i] = {}
+        self.v[i] = {}
+        for j = 1, grid_size do
+            self.u[i][j] = 0.0
+            self.v[i][j] = 0.0
+        end
+    end
+
+    -- Create genesis block
+    self:create_genesis_block()
+    return self
+end
+
+function NavierStokesWithFourier:get_current_timestamp()
+    return os.date("%Y-%m-%d %H:%M:%S")
+end
+
+function NavierStokesWithFourier:create_genesis_block()
+    local genesis_block = create_block(0, self:get_current_timestamp(), "Genesis Block", "0")
+    table.insert(self.blockchain, genesis_block)
+end
+
+function NavierStokesWithFourier:add_block(data)
+    local previous_block = self.blockchain[#self.blockchain]
+    local new_block = create_block(previous_block.index + 1, self:get_current_timestamp(), data, previous_block.hash)
+    table.insert(self.blockchain, new_block)
+end
+
+function NavierStokesWithFourier:print_blockchain()
+    print("Blockchain data:")
+    for _, block in ipairs(self.blockchain) do
+        print("Block #" .. block.index)
+        print("  Timestamp: " .. block.timestamp)
+        print("  Hash: " .. block.hash)
+        print("  Previous Hash: " .. block.previous_hash)
+        print("  Data: " .. (string.sub(block.data, 1, 50) .. "..."))
+        print()
+    end
+end
+
+-- Main function
+local function main()
+    local ns_simulator = NavierStokesWithFourier.new(50, 100, 0.1, 1.0)
+
+    -- Example simulation and block addition
+    for i = 1, 10 do
+        ns_simulator:add_block("Simulation Step Data " .. i)
+    end
+
+    ns_simulator:print_blockchain()
+end
+
+main()
+
