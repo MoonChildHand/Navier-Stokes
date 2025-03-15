@@ -1,256 +1,137 @@
-# Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+require 'matrix'
+
+# 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
+def check_conditions(data)
+  return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상" unless data["kidney_blood_flow_normal"]
+  return "뇌수 흐름 방향 이상" unless data["diencephalon_flow"]
+  "정상"
+end
+
+# 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
+def check_circulatory_and_digestive_system(data)
+  return "간에서 여과된 성분이 췌장으로 전달되지 않음" unless data["filtered_components"]
+  return "대뇌 호르몬 수치 이상" unless data["hormone_levels"]
+  "정상"
+end
+
+# 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
+def check_blood_cells(data)
+  return "폐순환에서 적혈구 발견 - 백혈병 가능성" if data["rbc_in_lung"]
+  return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장" if data["wbc_mixed"]
+  return "뇌수 역류 - 억제제 및 소화제 복용 권장" if data["brain_reverse_flow"]
+  "정상"
+end
+
+# 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
+def check_unit_vectors(unit_vectors)
+  reference = normalize(unit_vectors[0])
+  unit_vectors.all? { |vector| normalize(vector) == reference }
+end
+
+# 벡터 정규화: 벡터를 표준 형태로 변환합니다.
+def normalize(vector)
+  magnitude = Math.sqrt(vector.sum { |v| v**2 })
+  vector.map { |v| v / magnitude }
+end
+
+# 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
+def check_reproductive_system(data)
+  return "동물성 단백질 섭취 필요" unless data["protein_intake"]
+  return "적혈구와 백혈구의 비율 불균형" unless data["rbc_wbc_ratio"] == 1
+  "정상"
+end
+
+# 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
+def check_digestion_nutrition(data)
+  return "식물성 무기질 섭취 부족" unless data["mineral_intake"]
+  "정상"
+end
+
+# 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
+def navier_stokes_transform(u, omega)
+  u.zip(omega).map { |ui, omegai| ui / omegai }
+end
+
+# 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
+def linear_combination_transform(a1, f_v, a2, f_t)
+  f_v.zip(f_t).map { |f_vi, f_ti| a1 * f_vi + a2 * f_ti }
+end
+
+# 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
 def mahalanobis_distance(x, sigma)
-  # Create inverse of Sigma (simplified - assuming identity matrix)
-  inv_sigma = Matrix.new(sigma.rows, sigma.cols)
-  (0...sigma.rows).each do |i|
-    (0...sigma.cols).each do |j|
-      inv_sigma.data[i][j] = (i == j) ? 1.0 / sigma.data[i][j] : 0
-    end
-  end
-  
-  # Calculate X^T * inv_Sigma * X
-  result = 0.0
-  (0...x.size).each do |i|
-    (0...x.size).each do |j|
-      result += x.data[i] * inv_sigma.data[i][j] * x.data[j]
-    end
-  end
-  
-  result
+  inv_sigma = Matrix.rows(sigma).inverse.to_a
+  inv_sigma_x = matrix_vector_multiply(inv_sigma, x)
+  dot_product(x, inv_sigma_x)
 end
 
-# Hyperbolic speed calculation
+# 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
 def hyperbolic_speed(sech_coeff, nu)
-  -sech_coeff * (1.0 / Math.cosh(nu)) * (1.0 / Math.cosh(nu))
+  -sech_coeff * (1.0 / Math.cosh(nu))**2
 end
 
-# Check if vectors are unit vectors
-def check_unit_vectors(vectors, num_vectors)
-  # Normalize first vector
-  norm = 0.0
-  (0...vectors[0].size).each do |i|
-    norm += vectors[0].data[i] * vectors[0].data[i]
-  end
-  norm = Math.sqrt(norm)
-  
-  unit_vector = Vector.new(vectors[0].size)
-  
-  (0...vectors[0].size).each do |i|
-    unit_vector.data[i] = vectors[0].data[i] / norm
-  end
-  
-  # Check if all vectors are close to the first unit vector
-  result = true
-  (0...num_vectors).each do |v|
-    norm = 0.0
-    (0...vectors[v].size).each do |i|
-      norm += vectors[v].data[i] * vectors[v].data[i]
-    end
-    norm = Math.sqrt(norm)
-    
-    # Check if normalized vector is close to the first unit vector
-    close = true
-    (0...vectors[v].size).each do |i|
-      if ((vectors[v].data[i] / norm) - unit_vector.data[i]).abs > 1e-10
-        close = false
-        break
-      end
-    end
-    
-    if !close
-      result = false
-      break
-    end
-  end
-  
-  result
+# 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
+def recommend_medication(data)
+  return "전도체를 가진 약물 복용" if data["rbc_in_lung"]
+  return "열전도율이 높은 액체 복용" if data["wbc_mixed"]
+  return "억제제 및 소화제 복용" if data["brain_reverse_flow"]
+  "추천되는 약물 없음"
 end
 
-# Recommend medication function
-def recommend_medication(rbc_in_lung, wbc_mixed, brain_reverse_flow)
-  if rbc_in_lung
-    "전도체를 가진 약물 복용"  # Immune boosting
-  elsif wbc_mixed
-    "열전도율이 높은 액체 물질 복용"  # WBC mixing
-  elsif brain_reverse_flow
-    "소화제, 여과제 등 억제류 마취과 약물 복용"  # Brain reverse flow
-  else
-    "추천되는 약물 없음"
-  end
+# 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
+def check_rehabilitation(data)
+  return "10년 이상의 재활 필요" if data["rehabilitation_needed"]
+  return "신경계 문제 확인 필요" if data["neural_disorder"]
+  "정상"
 end
 
-# Structure for patient data
-class PatientData
-  attr_accessor :kidney_blood_flow_normal, :diencephalon_flow,
-                :u, :omega, :a1, :f_v, :a2, :f_t,
-                :x, :sigma, :sech_coeff, :nu,
-                :unit_vectors, :num_unit_vectors,
-                :rbc_in_lung, :wbc_mixed, :brain_reverse_flow
-  
-  def initialize
-    @kidney_blood_flow_normal = false
-    @diencephalon_flow = false
-    @u = nil
-    @omega = nil
-    @a1 = 0.0
-    @f_v = nil
-    @a2 = 0.0
-    @f_t = nil
-    @x = nil
-    @sigma = nil
-    @sech_coeff = 0.0
-    @nu = 0.0
-    @unit_vectors = []
-    @num_unit_vectors = 0
-    @rbc_in_lung = false
-    @wbc_mixed = false
-    @brain_reverse_flow = false
-  end
+# 병질 구분 통합 알고리즘
+def diagnose_with_fourier(data, unit_vectors)
+  {
+    "Initial Conditions" => check_conditions(data),
+    "Circulatory and Digestive System" => check_circulatory_and_digestive_system(data),
+    "Blood Cells" => check_blood_cells(data),
+    "Unit Vector Consistency" => check_unit_vectors(unit_vectors) ? "정상" : "불일치",
+    "Reproductive System" => check_reproductive_system(data),
+    "Digestion & Nutrition" => check_digestion_nutrition(data),
+    "Medication Recommendation" => recommend_medication(data),
+    "Rehabilitation" => check_rehabilitation(data)
+  }
 end
 
-# Structure for diagnosis result
-class DiagnosisResult
-  attr_accessor :velocity_field, :linear_velocity,
-                :mahalanobis_dist, :hyper_speed,
-                :unit_vector_consistent, :medication_recommendation
-  
-  def initialize
-    @velocity_field = nil
-    @linear_velocity = nil
-    @mahalanobis_dist = 0.0
-    @hyper_speed = 0.0
-    @unit_vector_consistent = false
-    @medication_recommendation = ""
-  end
+def invert_matrix(matrix)
+  # 실제 구현 필요
+  matrix
 end
 
-# Main diagnostic function
-def diagnose_with_fourier(data)
-  result = DiagnosisResult.new
-  
-  # Check initial conditions
-  if !(data.kidney_blood_flow_normal && data.diencephalon_flow)
-    puts "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상"
-    # Initialize empty results
-    result.velocity_field = ComplexVector.new(0)
-    result.linear_velocity = Vector.new(0)
-    result.mahalanobis_dist = 0.0
-    result.hyper_speed = 0.0
-    result.unit_vector_consistent = false
-    result.medication_recommendation = "초기 조건 불만족"
-    return result
-  end
-  
-  # Calculate velocity field using Navier-Stokes
-  result.velocity_field = navier_stokes_transform(data.u, data.omega)
-  
-  # Calculate linear velocity combination
-  result.linear_velocity = linear_combination_transform(data.a1, data.f_v, data.a2, data.f_t)
-  
-  # Calculate Mahalanobis distance
-  result.mahalanobis_dist = mahalanobis_distance(data.x, data.sigma)
-  
-  # Calculate hyperbolic speed
-  result.hyper_speed = hyperbolic_speed(data.sech_coeff, data.nu)
-  
-  # Check unit vectors consistency
-  result.unit_vector_consistent = check_unit_vectors(data.unit_vectors, data.num_unit_vectors)
-  
-  # Recommend medication
-  result.medication_recommendation = recommend_medication(data.rbc_in_lung, data.wbc_mixed, data.brain_reverse_flow)
-  
-  result
+def matrix_vector_multiply(matrix, vector)
+  matrix.map { |row| row.zip(vector).map { |a, b| a * b }.sum }
 end
 
-def print_diagnosis_result(result)
-  puts "Diagnosis Results:"
-  
-  print "Velocity Field: "
-  (0...result.velocity_field.size).each do |i|
-    print "%.2f + %.2fi " % [result.velocity_field.data[i].real, result.velocity_field.data[i].imag]
-  end
-  puts
-  
-  print "Linear Velocity: "
-  (0...result.linear_velocity.size).each do |i|
-    print "%.2f " % result.linear_velocity.data[i]
-  end
-  puts
-  
-  puts "Mahalanobis Distance: %.2f" % result.mahalanobis_dist
-  puts "Hyperbolic Speed: %.2f" % result.hyper_speed
-  puts "Unit Vector Consistent: %s" % (result.unit_vector_consistent ? "true" : "false")
-  puts "Medication Recommendation: %s" % result.medication_recommendation
+def dot_product(vec1, vec2)
+  vec1.zip(vec2).map { |a, b| a * b }.sum
 end
 
-# Main function
-def main
-  # Create sample patient data
-  patient = PatientData.new
-  
-  patient.kidney_blood_flow_normal = true
-  patient.diencephalon_flow = true
-  
-  # Initialize U vector
-  patient.u = Vector.new(3)
-  patient.u.data[0] = 1.0
-  patient.u.data[1] = 2.0
-  patient.u.data[2] = 3.0
-  
-  # Initialize omega vector
-  patient.omega = Vector.new(2)
-  patient.omega.data[0] = 0.5
-  patient.omega.data[1] = 1.0
-  
-  patient.a1 = 0.6
-  
-  # Initialize F_V vector
-  patient.f_v = Vector.new(2)
-  patient.f_v.data[0] = 0.8
-  patient.f_v.data[1] = 0.9
-  
-  patient.a2 = 0.4
-  
-  # Initialize F_T vector
-  patient.f_t = Vector.new(2)
-  patient.f_t.data[0] = 0.5
-  patient.f_t.data[1] = 0.7
-  
-  # Initialize X vector
-  patient.x = Vector.new(2)
-  patient.x.data[0] = 1.5
-  patient.x.data[1] = 2.0
-  
-  # Initialize Sigma matrix
-  patient.sigma = Matrix.new(2, 2)
-  patient.sigma.data[0][0] = 1.0
-  patient.sigma.data[0][1] = 0.0
-  patient.sigma.data[1][0] = 0.0
-  patient.sigma.data[1][1] = 1.0
-  
-  patient.sech_coeff = -0.3
-  patient.nu = 0.5
-  
-  # Initialize unit vectors
-  patient.num_unit_vectors = 2
-  patient.unit_vectors = []
-  
-  (0...patient.num_unit_vectors).each do |v|
-    vector = Vector.new(2)
-    vector.data[0] = 1.0
-    vector.data[1] = 0.0
-    patient.unit_vectors << vector
-  end
-  
-  patient.rbc_in_lung = false
-  patient.wbc_mixed = false
-  patient.brain_reverse_flow = false
-  
-  # Run diagnosis
-  result = diagnose_with_fourier(patient)
-  
-  # Print results
-  print_diagnosis_result(result)
-end
+# 예제 데이터
+patient_data = {
+  "kidney_blood_flow_normal" => true,
+  "diencephalon_flow" => true,
+  "filtered_components" => true,
+  "hormone_levels" => true,
+  "rbc_in_lung" => false,
+  "wbc_mixed" => false,
+  "brain_reverse_flow" => false,
+  "protein_intake" => true,
+  "rbc_wbc_ratio" => 1,
+  "mineral_intake" => true,
+  "rehabilitation_needed" => false,
+  "neural_disorder" => false
+}
 
-main
+unit_vectors = [
+  [1.0, 0.0],
+  [1.0, 0.0]
+]
+
+# 병질 구분 결과 출력
+results = diagnose_with_fourier(patient_data, unit_vectors)
+results.each { |key, value| puts "#{key}: #{value}" }
