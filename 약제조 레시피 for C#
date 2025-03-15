@@ -1,242 +1,95 @@
 using System;
-using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MedicalDiagnostics
+class Program
 {
-    class Program
+    static string CheckConditions(Dictionary<string, bool> data)
     {
-        // Navier-Stokes based velocity field calculation
-        static Complex[] NavierStokesTransform(double[] U, double[] omega)
-        {
-            Complex[] result = new Complex[omega.Length];
-            for (int i = 0; i < omega.Length; i++)
-            {
-                result[i] = U[i % U.Length] / new Complex(0, omega[i]);
-            }
-            return result;
-        }
+        if (!data["kidney_blood_flow_normal"]) return "콩팥/달팽이관 혈류 이상";
+        if (!data["diencephalon_flow"]) return "뇌수 흐름 방향 이상";
+        return "정상";
+    }
 
-        // Linear combination calculation
-        static double[] LinearCombinationTransform(double a1, double[] F_V, double a2, double[] F_T)
-        {
-            double[] result = new double[F_V.Length];
-            for (int i = 0; i < F_V.Length; i++)
-            {
-                result[i] = a1 * F_V[i] + a2 * F_T[i];
-            }
-            return result;
-        }
+    static string CheckCirculatorySystem(Dictionary<string, bool> data)
+    {
+        if (!data["filtered_components"]) return "간에서 여과된 성분이 췌장으로 전달되지 않음";
+        if (!data["hormone_levels"]) return "대뇌 호르몬 이상";
+        return "정상";
+    }
 
-        // Mahalanobis distance calculation
-        static double MahalanobisDistance(double[] X, double[,] Sigma)
-        {
-            int n = X.Length;
-            
-            // Create inverse of Sigma (simplified - assuming diagonal matrix)
-            double[,] invSigma = new double[n, n];
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = 0; j < n; j++)
-                {
-                    invSigma[i, j] = (i == j) ? 1.0 / Sigma[i, j] : 0;
-                }
-            }
-            
-            // Calculate X.T * inv_Sigma * X
-            double result = 0.0;
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = 0; j < n; j++)
-                {
-                    result += X[i] * invSigma[i, j] * X[j];
-                }
-            }
-            return result;
-        }
+    static string CheckBloodCells(Dictionary<string, bool> data)
+    {
+        if (data["rbc_in_lung"]) return "전도체 약물 권장";
+        if (data["wbc_mixed"]) return "열전도율이 높은 액체 권장";
+        if (data["brain_reverse_flow"]) return "억제제 및 소화제 권장";
+        return "정상";
+    }
 
-        // Hyperbolic speed calculation
-        static double HyperbolicSpeed(double sech_coeff, double nu)
+    static bool CheckUnitVectors(List<double[]> unitVectors)
+    {
+        double[] reference = unitVectors[0];
+        for (int i = 1; i < unitVectors.Count; i++)
         {
-            return -sech_coeff * Math.Pow(1.0 / Math.Cosh(nu), 2);
-        }
+            double magnitude = Math.Sqrt(unitVectors[i][0] * unitVectors[i][0] + unitVectors[i][1] * unitVectors[i][1]);
+            double[] normalized = { unitVectors[i][0] / magnitude, unitVectors[i][1] / magnitude };
 
-        // Check if vectors are unit vectors
-        static bool CheckUnitVectors(List<double[]> vectors)
-        {
-            if (vectors.Count == 0) return true;
-            
-            // Normalize the first vector
-            double[] firstVector = vectors[0];
-            double norm = Math.Sqrt(firstVector.Sum(x => x * x));
-            double[] unitVector = firstVector.Select(x => x / norm).ToArray();
-            
-            // Check all vectors against the first unit vector
-            foreach (var vector in vectors)
-            {
-                double vectorNorm = Math.Sqrt(vector.Sum(x => x * x));
-                double[] normalizedVector = vector.Select(x => x / vectorNorm).ToArray();
-                
-                for (int i = 0; i < normalizedVector.Length; i++)
-                {
-                    if (Math.Abs(normalizedVector[i] - unitVector[i]) > 1e-10)
-                    {
-                        return false;
-                    }
-                }
-            }
-            
-            return true;
+            if (!normalized.SequenceEqual(reference)) return false;
         }
+        return true;
+    }
 
-        // Medication recommendation function
-        static string RecommendMedication(bool rbc_in_lung, bool wbc_mixed, bool brain_reverse_flow)
-        {
-            if (rbc_in_lung)
-            {
-                return "전도체를 가진 약물 복용";  // Immune boosting
-            }
-            else if (wbc_mixed)
-            {
-                return "열전도율이 높은 액체 물질 복용";  // WBC mixing
-            }
-            else if (brain_reverse_flow)
-            {
-                return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
-            }
-            else
-            {
-                return "추천되는 약물 없음";
-            }
-        }
+    static string CheckReproductiveSystem(Dictionary<string, object> data)
+    {
+        if (!(bool)data["protein_intake"]) return "동물성 단백질 섭취 필요";
+        if ((int)data["rbc_wbc_ratio"] != 1) return "적혈구와 백혈구의 균형 이상";
+        return "정상";
+    }
 
-        // Patient data class
-        class PatientData
-        {
-            public bool KidneyBloodFlowNormal { get; set; }
-            public bool DiencephalonFlow { get; set; }
-            public double[] U { get; set; }
-            public double[] Omega { get; set; }
-            public double A1 { get; set; }
-            public double[] F_V { get; set; }
-            public double A2 { get; set; }
-            public double[] F_T { get; set; }
-            public double[] X { get; set; }
-            public double[,] Sigma { get; set; }
-            public double SechCoeff { get; set; }
-            public double Nu { get; set; }
-            public List<double[]> UnitVectors { get; set; }
-            public bool RbcInLung { get; set; }
-            public bool WbcMixed { get; set; }
-            public bool BrainReverseFlow { get; set; }
-        }
+    static string CheckDigestionNutrition(Dictionary<string, bool> data)
+    {
+        if (!data["mineral_intake"]) return "식물성 무기질 섭취 부족";
+        return "정상";
+    }
 
-        // Diagnosis result class
-        class DiagnosisResult
-        {
-            public Complex[] VelocityField { get; set; }
-            public double[] LinearVelocity { get; set; }
-            public double MahalanobisDist { get; set; }
-            public double HyperSpeed { get; set; }
-            public bool UnitVectorConsistent { get; set; }
-            public string MedicationRecommendation { get; set; }
-            
-            public override string ToString()
-            {
-                string result = "Diagnosis Results:\n";
-                
-                result += "Velocity Field: ";
-                if (VelocityField != null)
-                {
-                    foreach (var v in VelocityField)
-                    {
-                        result += $"{v.Real:F2} + {v.Imaginary:F2}i ";
-                    }
-                }
-                result += "\n";
-                
-                result += "Linear Velocity: ";
-                if (LinearVelocity != null)
-                {
-                    foreach (var v in LinearVelocity)
-                    {
-                        result += $"{v:F2} ";
-                    }
-                }
-                result += "\n";
-                
-                result += $"Mahalanobis Distance: {MahalanobisDist:F2}\n";
-                result += $"Hyperbolic Speed: {HyperSpeed:F2}\n";
-                result += $"Unit Vector Consistent: {UnitVectorConsistent}\n";
-                result += $"Medication Recommendation: {MedicationRecommendation}\n";
-                
-                return result;
-            }
-        }
+    static string CheckRehabilitation(Dictionary<string, bool> data)
+    {
+        if (data["rehabilitation_needed"]) return "10년 이상의 재활 필요";
+        if (data["neural_disorder"]) return "신경계 문제 확인 필요";
+        return "정상";
+    }
 
-        // Main diagnosis function
-        static DiagnosisResult DiagnoseWithFourier(PatientData data)
+    static void Main(string[] args)
+    {
+        var patientData = new Dictionary<string, object>
         {
-            DiagnosisResult result = new DiagnosisResult();
-            
-            // Check initial conditions
-            if (!(data.KidneyBloodFlowNormal && data.DiencephalonFlow))
-            {
-                Console.WriteLine("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상");
-                result.MedicationRecommendation = "초기 조건 불만족";
-                return result;
-            }
-            
-            // Navier-Stokes based velocity field calculation
-            result.VelocityField = NavierStokesTransform(data.U, data.Omega);
-            
-            // Linear combination calculation
-            result.LinearVelocity = LinearCombinationTransform(data.A1, data.F_V, data.A2, data.F_T);
-            
-            // Mahalanobis distance calculation
-            result.MahalanobisDist = MahalanobisDistance(data.X, data.Sigma);
-            
-            // Hyperbolic speed calculation
-            result.HyperSpeed = HyperbolicSpeed(data.SechCoeff, data.Nu);
-            
-            // Check unit vectors
-            result.UnitVectorConsistent = CheckUnitVectors(data.UnitVectors);
-            
-            // Medication recommendation
-            result.MedicationRecommendation = RecommendMedication(data.RbcInLung, data.WbcMixed, data.BrainReverseFlow);
-            
-            return result;
-        }
+            { "kidney_blood_flow_normal", true },
+            { "diencephalon_flow", true },
+            { "filtered_components", true },
+            { "hormone_levels", true },
+            { "rbc_in_lung", false },
+            { "wbc_mixed", false },
+            { "brain_reverse_flow", false },
+            { "protein_intake", true },
+            { "rbc_wbc_ratio", 1 },
+            { "mineral_intake", true },
+            { "rehabilitation_needed", false },
+            { "neural_disorder", false }
+        };
 
-        static void Main(string[] args)
+        var unitVectors = new List<double[]>
         {
-            // Create sample patient data
-            PatientData patientData = new PatientData
-            {
-                KidneyBloodFlowNormal = true,
-                DiencephalonFlow = true,
-                U = new double[] { 1.0, 2.0, 3.0 },
-                Omega = new double[] { 0.5, 1.0 },
-                A1 = 0.6,
-                F_V = new double[] { 0.8, 0.9 },
-                A2 = 0.4,
-                F_T = new double[] { 0.5, 0.7 },
-                X = new double[] { 1.5, 2.0 },
-                Sigma = new double[,] { { 1.0, 0.0 }, { 0.0, 1.0 } },
-                SechCoeff = -0.3,
-                Nu = 0.5,
-                UnitVectors = new List<double[]> { new double[] { 1.0, 0.0 }, new double[] { 1.0, 0.0 } },
-                RbcInLung = false,
-                WbcMixed = false,
-                BrainReverseFlow = false
-            };
-            
-            // Run diagnosis
-            DiagnosisResult result = DiagnoseWithFourier(patientData);
-            
-            // Print results
-            Console.WriteLine(result);
-        }
+            new double[] { 1, 0 },
+            new double[] { 1, 0 }
+        };
+
+        Console.WriteLine("Initial Conditions: " + CheckConditions(patientData.ToDictionary(k => k.Key, k => (bool)k.Value)));
+        Console.WriteLine("Circulatory System: " + CheckCirculatorySystem(patientData.ToDictionary(k => k.Key, k => (bool)k.Value)));
+        Console.WriteLine("Blood Cells: " + CheckBloodCells(patientData.ToDictionary(k => k.Key, k => (bool)k.Value)));
+        Console.WriteLine("Unit Vector Consistency: " + (CheckUnitVectors(unitVectors) ? "정상" : "불일치"));
+        Console.WriteLine("Reproductive System: " + CheckReproductiveSystem(patientData));
+        Console.WriteLine("Digestion & Nutrition: " + CheckDigestionNutrition(patientData.ToDictionary(k => k.Key, k => (bool)k.Value)));
+        Console.WriteLine("Rehabilitation: " + CheckRehabilitation(patientData.ToDictionary(k => k.Key, k => (bool)k.Value)));
     }
 }
+
