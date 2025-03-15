@@ -1,0 +1,339 @@
+-- Structure to hold complex vector (using tables in Lua)
+local ComplexVector = {}
+ComplexVector.__index = ComplexVector
+
+function ComplexVector.new(size)
+    local self = setmetatable({}, ComplexVector)
+    self.data = {}
+    self.size = size
+    for i = 1, size do
+        self.data[i] = {real = 0, imag = 0}  -- Complex number as a table
+    end
+    return self
+end
+
+-- Structure to hold vector
+local Vector = {}
+Vector.__index = Vector
+
+function Vector.new(size)
+    local self = setmetatable({}, Vector)
+    self.data = {}
+    self.size = size
+    for i = 1, size do
+        self.data[i] = 0
+    end
+    return self
+end
+
+-- Structure to hold matrix
+local Matrix = {}
+Matrix.__index = Matrix
+
+function Matrix.new(rows, cols)
+    local self = setmetatable({}, Matrix)
+    self.data = {}
+    self.rows = rows
+    self.cols = cols
+    for i = 1, rows do
+        self.data[i] = {}
+        for j = 1, cols do
+            self.data[i][j] = 0
+        end
+    end
+    return self
+end
+
+-- Complex math helpers
+local complex = {}
+
+function complex.div(a, b)
+    local denom = b.real * b.real + b.imag * b.imag
+    return {
+        real = (a.real * b.real + a.imag * b.imag) / denom,
+        imag = (a.imag * b.real - a.real * b.imag) / denom
+    }
+end
+
+-- Function to create FFT of a vector (simplified)
+function navier_stokes_transform(U, omega)
+    local size = omega.size
+    local result = ComplexVector.new(size)
+    
+    -- Simplified FFT calculation
+    for i = 1, size do
+        local u_val = U.data[(i - 1) % U.size + 1]
+        local omega_val = omega.data[i]
+        -- I * omega.data[i] = {real = 0, imag = omega.data[i]}
+        result.data[i] = complex.div({real = u_val, imag = 0}, {real = 0, imag = omega_val})
+    end
+    
+    return result
+end
+
+-- Linear combination transform
+function linear_combination_transform(a1, F_V, a2, F_T)
+    local size = F_V.size
+    local result = Vector.new(size)
+    
+    for i = 1, size do
+        result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i]
+    end
+    
+    return result
+end
+
+-- Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+function mahalanobis_distance(X, Sigma)
+    -- Create inverse of Sigma (simplified - assuming identity matrix)
+    local inv_Sigma = Matrix.new(Sigma.rows, Sigma.cols)
+    for i = 1, Sigma.rows do
+        for j = 1, Sigma.cols do
+            inv_Sigma.data[i][j] = (i == j) and 1.0 / Sigma.data[i][j] or 0
+        end
+    end
+    
+    -- Calculate X^T * inv_Sigma * X
+    local result = 0.0
+    for i = 1, X.size do
+        for j = 1, X.size do
+            result = result + X.data[i] * inv_Sigma.data[i][j] * X.data[j]
+        end
+    end
+    
+    return result
+end
+
+-- Hyperbolic speed calculation
+function hyperbolic_speed(sech_coeff, nu)
+    local function sech(x)
+        return 2 / (math.exp(x) + math.exp(-x))
+    end
+    return -sech_coeff * sech(nu) * sech(nu)
+end
+
+-- Check if vectors are unit vectors
+function check_unit_vectors(vectors, num_vectors)
+    -- Normalize first vector
+    local norm = 0.0
+    for i = 1, vectors[1].size do
+        norm = norm + vectors[1].data[i] * vectors[1].data[i]
+    end
+    norm = math.sqrt(norm)
+    
+    local unit_vector = Vector.new(vectors[1].size)
+    
+    for i = 1, vectors[1].size do
+        unit_vector.data[i] = vectors[1].data[i] / norm
+    end
+    
+    -- Check if all vectors are close to the first unit vector
+    local result = true
+    for v = 1, num_vectors do
+        norm = 0.0
+        for i = 1, vectors[v].size do
+            norm = norm + vectors[v].data[i] * vectors[v].data[i]
+        end
+        norm = math.sqrt(norm)
+        
+        -- Check if normalized vector is close to the first unit vector
+        local close = true
+        for i = 1, vectors[v].size do
+            if math.abs((vectors[v].data[i] / norm) - unit_vector.data[i]) > 1e-10 then
+                close = false
+                break
+            end
+        end
+        
+        if not close then
+            result = false
+            break
+        end
+    end
+    
+    return result
+end
+
+-- Recommend medication function
+function recommend_medication(rbc_in_lung, wbc_mixed, brain_reverse_flow)
+    if rbc_in_lung then
+        return "전도체를 가진 약물 복용"  -- Immune boosting
+    elseif wbc_mixed then
+        return "열전도율이 높은 액체 물질 복용"  -- WBC mixing
+    elseif brain_reverse_flow then
+        return "소화제, 여과제 등 억제류 마취과 약물 복용"  -- Brain reverse flow
+    else
+        return "추천되는 약물 없음"
+    end
+end
+
+-- Structure for patient data
+local PatientData = {}
+PatientData.__index = PatientData
+
+function PatientData.new()
+    local self = setmetatable({}, PatientData)
+    self.kidney_blood_flow_normal = false
+    self.diencephalon_flow = false
+    self.U = nil
+    self.omega = nil
+    self.a1 = 0
+    self.F_V = nil
+    self.a2 = 0
+    self.F_T = nil
+    self.X = nil
+    self.Sigma = nil
+    self.sech_coeff = 0
+    self.nu = 0
+    self.unit_vectors = {}
+    self.num_unit_vectors = 0
+    self.rbc_in_lung = false
+    self.wbc_mixed = false
+    self.brain_reverse_flow = false
+    return self
+end
+
+-- Structure for diagnosis result
+local DiagnosisResult = {}
+DiagnosisResult.__index = DiagnosisResult
+
+function DiagnosisResult.new()
+    local self = setmetatable({}, DiagnosisResult)
+    self.velocity_field = nil
+    self.linear_velocity = nil
+    self.mahalanobis_dist = 0.0
+    self.hyper_speed = 0.0
+    self.unit_vector_consistent = false
+    self.medication_recommendation = ""
+    return self
+end
+
+-- Main diagnostic function
+function diagnose_with_fourier(data)
+    local result = DiagnosisResult.new()
+    
+    -- Check initial conditions
+    if not (data.kidney_blood_flow_normal and data.diencephalon_flow) then
+        print("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상")
+        -- Initialize empty results
+        result.velocity_field = ComplexVector.new(0)
+        result.linear_velocity = Vector.new(0)
+        result.mahalanobis_dist = 0.0
+        result.hyper_speed = 0.0
+        result.unit_vector_consistent = false
+        result.medication_recommendation = "초기 조건 불만족"
+        return result
+    end
+    
+    -- Calculate velocity field using Navier-Stokes
+    result.velocity_field = navier_stokes_transform(data.U, data.omega)
+    
+    -- Calculate linear velocity combination
+    result.linear_velocity = linear_combination_transform(data.a1, data.F_V, data.a2, data.F_T)
+    
+    -- Calculate Mahalanobis distance
+    result.mahalanobis_dist = mahalanobis_distance(data.X, data.Sigma)
+    
+    -- Calculate hyperbolic speed
+    result.hyper_speed = hyperbolic_speed(data.sech_coeff, data.nu)
+    
+    -- Check unit vectors consistency
+    result.unit_vector_consistent = check_unit_vectors(data.unit_vectors, data.num_unit_vectors)
+    
+    -- Recommend medication
+    result.medication_recommendation = recommend_medication(data.rbc_in_lung, data.wbc_mixed, data.brain_reverse_flow)
+    
+    return result
+end
+
+function print_diagnosis_result(result)
+    print("Diagnosis Results:")
+    
+    io.write("Velocity Field: ")
+    for i = 1, result.velocity_field.size do
+        io.write(string.format("%.2f + %.2fi ", result.velocity_field.data[i].real, result.velocity_field.data[i].imag))
+    end
+    print()
+    
+    io.write("Linear Velocity: ")
+    for i = 1, result.linear_velocity.size do
+        io.write(string.format("%.2f ", result.linear_velocity.data[i]))
+    end
+    print()
+    
+    print(string.format("Mahalanobis Distance: %.2f", result.mahalanobis_dist))
+    print(string.format("Hyperbolic Speed: %.2f", result.hyper_speed))
+    print(string.format("Unit Vector Consistent: %s", result.unit_vector_consistent and "true" or "false"))
+    print(string.format("Medication Recommendation: %s", result.medication_recommendation))
+end
+
+-- Main function
+local function main()
+    -- Create sample patient data
+    local patient = PatientData.new()
+    
+    patient.kidney_blood_flow_normal = true
+    patient.diencephalon_flow = true
+    
+    -- Initialize U vector
+    patient.U = Vector.new(3)
+    patient.U.data[1] = 1.0
+    patient.U.data[2] = 2.0
+    patient.U.data[3] = 3.0
+    
+    -- Initialize omega vector
+    patient.omega = Vector.new(2)
+    patient.omega.data[1] = 0.5
+    patient.omega.data[2] = 1.0
+    
+    patient.a1 = 0.6
+    
+    -- Initialize F_V vector
+    patient.F_V = Vector.new(2)
+    patient.F_V.data[1] = 0.8
+    patient.F_V.data[2] = 0.9
+    
+    patient.a2 = 0.4
+    
+    -- Initialize F_T vector
+    patient.F_T = Vector.new(2)
+    patient.F_T.data[1] = 0.5
+    patient.F_T.data[2] = 0.7
+    
+    -- Initialize X vector
+    patient.X = Vector.new(2)
+    patient.X.data[1] = 1.5
+    patient.X.data[2] = 2.0
+    
+    -- Initialize Sigma matrix
+    patient.Sigma = Matrix.new(2, 2)
+    patient.Sigma.data[1][1] = 1.0
+    patient.Sigma.data[1][2] = 0.0
+    patient.Sigma.data[2][1] = 0.0
+    patient.Sigma.data[2][2] = 1.0
+    
+    patient.sech_coeff = -0.3
+    patient.nu = 0.5
+    
+    -- Initialize unit vectors
+    patient.num_unit_vectors = 2
+    patient.unit_vectors = {}
+    
+    for v = 1, patient.num_unit_vectors do
+        patient.unit_vectors[v] = Vector.new(2)
+        patient.unit_vectors[v].data[1] = 1.0
+        patient.unit_vectors[v].data[2] = 0.0
+    end
+    
+    patient.rbc_in_lung = false
+    patient.wbc_mixed = false
+    patient.brain_reverse_flow = false
+    
+    -- Run diagnosis
+    local result = diagnose_with_fourier(patient)
+    
+    -- Print results
+    print_diagnosis_result(result)
+end
+
+main()
