@@ -1,339 +1,213 @@
-import java.util.Arrays;
+public class MedicineRecipe {
 
-public class MedicalDiagnosisSystem {
-    
-    // Complex number class
-    static class ComplexNumber {
-        double real;
-        double imag;
-        
-        public ComplexNumber(double real, double imag) {
-            this.real = real;
-            this.imag = imag;
+    public static String checkConditions(Data data) {
+        // 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
+        if (!data.kidney_blood_flow_normal) {
+            return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상";
         }
-        
-        public ComplexNumber(double real) {
-            this.real = real;
-            this.imag = 0;
+        if (!data.diencephalon_flow) {
+            return "뇌수 흐름 방향 이상";
         }
-        
-        public ComplexNumber divide(ComplexNumber other) {
-            double denom = other.real * other.real + other.imag * other.imag;
-            return new ComplexNumber(
-                (real * other.real + imag * other.imag) / denom,
-                (imag * other.real - real * other.imag) / denom
-            );
-        }
-        
-        @Override
-        public String toString() {
-            return String.format("%.2f + %.2fi", real, imag);
-        }
+        return "정상";
     }
-    
-    // Structure to hold complex vector
-    static class ComplexVector {
-        ComplexNumber[] data;
-        int size;
-        
-        public ComplexVector(int size) {
-            this.size = size;
-            this.data = new ComplexNumber[size];
-            for (int i = 0; i < size; i++) {
-                this.data[i] = new ComplexNumber(0, 0);
+
+    public static String checkCirculatoryAndDigestiveSystem(Data data) {
+        // 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
+        if (!data.filtered_components) {
+            return "간에서 여과된 성분이 췌장으로 전달되지 않음";
+        }
+        if (!data.hormone_levels) {
+            return "대뇌 호르몬 수치 이상";
+        }
+        return "정상";
+    }
+
+    public static String checkBloodCells(Data data) {
+        // 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
+        if (data.rbc_in_lung) {
+            return "폐순환에서 적혈구 발견 - 백혈병 가능성";
+        }
+        if (data.wbc_mixed) {
+            return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장";
+        }
+        if (data.brain_reverse_flow) {
+            return "뇌수 역류 - 억제제 및 소화제 복용 권장";
+        }
+        return "정상";
+    }
+
+    public static boolean checkUnitVectors(double[][] unit_vectors) {
+        // 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
+        double[] reference = normalize(unit_vectors[0]);
+        for (double[] vector : unit_vectors) {
+            if (!Arrays.equals(normalize(vector), reference)) {
+                return false;
             }
         }
+        return true;
     }
-    
-    // Structure to hold vector
-    static class Vector {
-        double[] data;
-        int size;
-        
-        public Vector(int size) {
-            this.size = size;
-            this.data = new double[size];
-        }
+
+    public static double[] normalize(double[] vector) {
+        // 벡터 정규화: 벡터를 표준 형태로 변환합니다.
+        double magnitude = Math.sqrt(Arrays.stream(vector).map(v -> v * v).sum());
+        return Arrays.stream(vector).map(v -> v / magnitude).toArray();
     }
-    
-    // Structure to hold matrix
-    static class Matrix {
-        double[][] data;
-        int rows;
-        int cols;
-        
-        public Matrix(int rows, int cols) {
-            this.rows = rows;
-            this.cols = cols;
-            this.data = new double[rows][cols];
+
+    public static String checkReproductiveSystem(Data data) {
+        // 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
+        if (!data.protein_intake) {
+            return "동물성 단백질 섭취 필요";
         }
+        if (data.rbc_wbc_ratio != 1) {
+            return "적혈구와 백혈구의 비율 불균형";
+        }
+        return "정상";
     }
-    
-    // Function to create FFT of a vector (simplified)
-    static ComplexVector navierStokesTransform(Vector U, Vector omega) {
-        int size = omega.size;
-        ComplexVector result = new ComplexVector(size);
-        
-        // Simplified FFT calculation
-        for (int i = 0; i < size; i++) {
-            double u_val = U.data[i % U.size];
-            ComplexNumber imaginaryI = new ComplexNumber(0, 1);
-            ComplexNumber omegaComplex = new ComplexNumber(0, omega.data[i]);
-            result.data[i] = new ComplexNumber(u_val).divide(omegaComplex);
+
+    public static String checkDigestionNutrition(Data data) {
+        // 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
+        if (!data.mineral_intake) {
+            return "식물성 무기질 섭취 부족";
         }
-        
+        return "정상";
+    }
+
+    public static double[] navierStokesTransform(double[] u, double[] omega) {
+        // 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
+        double[] result = new double[u.length];
+        for (int i = 0; i < u.length; i++) {
+            result[i] = u[i] / (1.0 * omega[i]);
+        }
         return result;
     }
-    
-    // Linear combination transform
-    static Vector linearCombinationTransform(double a1, Vector F_V, double a2, Vector F_T) {
-        int size = F_V.size;
-        Vector result = new Vector(size);
-        
-        for (int i = 0; i < size; i++) {
-            result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i];
+
+    public static double[] linearCombinationTransform(double a1, double[] f_v, double a2, double[] f_t) {
+        // 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
+        double[] result = new double[f_v.length];
+        for (int i = 0; i < f_v.length; i++) {
+            result[i] = a1 * f_v[i] + a2 * f_t[i];
         }
-        
         return result;
     }
-    
-    // Function to calculate matrix-vector-matrix product (simplified mahalanobis)
-    static double mahalanobisDistance(Vector X, Matrix Sigma) {
-        // Create inverse of Sigma (simplified - assuming identity matrix)
-        Matrix invSigma = new Matrix(Sigma.rows, Sigma.cols);
-        for (int i = 0; i < Sigma.rows; i++) {
-            for (int j = 0; j < Sigma.cols; j++) {
-                invSigma.data[i][j] = (i == j) ? 1.0 / Sigma.data[i][j] : 0;
+
+    public static double mahalanobisDistance(double[] x, double[][] sigma) {
+        // 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
+        double[] inv_sigma_x = matrixVectorMultiply(invertMatrix(sigma), x);
+        return dotProduct(x, inv_sigma_x);
+    }
+
+    public static double hyperbolicSpeed(double sech_coeff, double nu) {
+        // 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
+        return -sech_coeff * Math.pow(1.0 / Math.cosh(nu), 2);
+    }
+
+    public static String recommendMedication(Data data) {
+        // 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
+        if (data.rbc_in_lung) {
+            return "전도체를 가진 약물 복용";
+        }
+        if (data.wbc_mixed) {
+            return "열전도율이 높은 액체 복용";
+        }
+        if (data.brain_reverse_flow) {
+            return "억제제 및 소화제 복용";
+        }
+        return "추천되는 약물 없음";
+    }
+
+    public static String checkRehabilitation(Data data) {
+        // 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
+        if (data.rehabilitation_needed) {
+            return "10년 이상의 재활 필요";
+        }
+        if (data.neural_disorder) {
+            return "신경계 문제 확인 필요";
+        }
+        return "정상";
+    }
+
+    public static Map<String, String> diagnoseWithFourier(Data data, double[][] unit_vectors) {
+        // 병질 구분 통합 알고리즘
+        Map<String, String> results = new HashMap<>();
+        results.put("Initial Conditions", checkConditions(data));
+        results.put("Circulatory and Digestive System", checkCirculatoryAndDigestiveSystem(data));
+        results.put("Blood Cells", checkBloodCells(data));
+        results.put("Unit Vector Consistency", checkUnitVectors(unit_vectors) ? "정상" : "불일치");
+        results.put("Reproductive System", checkReproductiveSystem(data));
+        results.put("Digestion & Nutrition", checkDigestionNutrition(data));
+        results.put("Medication Recommendation", recommendMedication(data));
+        results.put("Rehabilitation", checkRehabilitation(data));
+        return results;
+    }
+
+    public static double[][] invertMatrix(double[][] matrix) {
+        // 매트릭스 역행렬 계산 (구체적인 구현 필요)
+        // 실제 구현 필요
+        return matrix;
+    }
+
+    public static double[] matrixVectorMultiply(double[][] matrix, double[] vector) {
+        // 행렬-벡터 곱셈
+        int rows = matrix.length;
+        int cols = matrix[0].length;
+        double[] result = new double[rows];
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                result[i] += matrix[i][j] * vector[j];
             }
         }
-        
-        // Calculate X^T * inv_Sigma * X
-        double result = 0.0;
-        for (int i = 0; i < X.size; i++) {
-            for (int j = 0; j < X.size; j++) {
-                result += X.data[i] * invSigma.data[i][j] * X.data[j];
-            }
-        }
-        
         return result;
     }
-    
-    // Hyperbolic speed calculation
-    static double hyperbolicSpeed(double sechCoeff, double nu) {
-        double sech = 1.0 / Math.cosh(nu);
-        return -sechCoeff * sech * sech;
-    }
-    
-    // Check if vectors are unit vectors
-    static boolean checkUnitVectors(Vector[] vectors, int numVectors) {
-        // Normalize first vector
-        double norm = 0.0;
-        for (int i = 0; i < vectors[0].size; i++) {
-            norm += vectors[0].data[i] * vectors[0].data[i];
+
+    public static double dotProduct(double[] vec1, double[] vec2) {
+        // 내적 계산
+        double result = 0;
+        for (int i = 0; i < vec1.length; i++) {
+            result += vec1[i] * vec2[i];
         }
-        norm = Math.sqrt(norm);
-        
-        Vector unitVector = new Vector(vectors[0].size);
-        
-        for (int i = 0; i < vectors[0].size; i++) {
-            unitVector.data[i] = vectors[0].data[i] / norm;
-        }
-        
-        // Check if all vectors are close to the first unit vector
-        boolean result = true;
-        for (int v = 0; v < numVectors; v++) {
-            norm = 0.0;
-            for (int i = 0; i < vectors[v].size; i++) {
-                norm += vectors[v].data[i] * vectors[v].data[i];
-            }
-            norm = Math.sqrt(norm);
-            
-            // Check if normalized vector is close to the first unit vector
-            boolean close = true;
-            for (int i = 0; i < vectors[v].size; i++) {
-                if (Math.abs((vectors[v].data[i] / norm) - unitVector.data[i]) > 1e-10) {
-                    close = false;
-                    break;
-                }
-            }
-            
-            if (!close) {
-                result = false;
-                break;
-            }
-        }
-        
         return result;
     }
-    
-    // Recommend medication function
-    static String recommendMedication(boolean rbcInLung, boolean wbcMixed, boolean brainReverseFlow) {
-        if (rbcInLung) {
-            return "전도체를 가진 약물 복용";  // Immune boosting
-        } else if (wbcMixed) {
-            return "열전도율이 높은 액체 물질 복용";  // WBC mixing
-        } else if (brainReverseFlow) {
-            return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
-        } else {
-            return "추천되는 약물 없음";
-        }
-    }
-    
-    // Structure for patient data
-    static class PatientData {
-        boolean kidneyBloodFlowNormal;
-        boolean diencephalonFlow;
-        Vector U;
-        Vector omega;
-        double a1;
-        Vector F_V;
-        double a2;
-        Vector F_T;
-        Vector X;
-        Matrix Sigma;
-        double sechCoeff;
-        double nu;
-        Vector[] unitVectors;
-        int numUnitVectors;
-        boolean rbcInLung;
-        boolean wbcMixed;
-        boolean brainReverseFlow;
-    }
-    
-    // Structure for diagnosis result
-    static class DiagnosisResult {
-        ComplexVector velocityField;
-        Vector linearVelocity;
-        double mahalanobisDist;
-        double hyperSpeed;
-        boolean unitVectorConsistent;
-        String medicationRecommendation;
-    }
-    
-    // Main diagnostic function
-    static DiagnosisResult diagnoseWithFourier(PatientData data) {
-        DiagnosisResult result = new DiagnosisResult();
-        
-        // Check initial conditions
-        if (!(data.kidneyBloodFlowNormal && data.diencephalonFlow)) {
-            System.out.println("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상");
-            // Initialize empty results
-            result.velocityField = new ComplexVector(0);
-            result.linearVelocity = new Vector(0);
-            result.mahalanobisDist = 0.0;
-            result.hyperSpeed = 0.0;
-            result.unitVectorConsistent = false;
-            result.medicationRecommendation = "초기 조건 불만족";
-            return result;
-        }
-        
-        // Calculate velocity field using Navier-Stokes
-        result.velocityField = navierStokesTransform(data.U, data.omega);
-        
-        // Calculate linear velocity combination
-        result.linearVelocity = linearCombinationTransform(data.a1, data.F_V, data.a2, data.F_T);
-        
-        // Calculate Mahalanobis distance
-        result.mahalanobisDist = mahalanobisDistance(data.X, data.Sigma);
-        
-        // Calculate hyperbolic speed
-        result.hyperSpeed = hyperbolicSpeed(data.sechCoeff, data.nu);
-        
-        // Check unit vectors consistency
-        result.unitVectorConsistent = checkUnitVectors(data.unitVectors, data.numUnitVectors);
-        
-        // Recommend medication
-        result.medicationRecommendation = recommendMedication(data.rbcInLung, data.wbcMixed, data.brainReverseFlow);
-        
-        return result;
-    }
-    
-    static void printDiagnosisResult(DiagnosisResult result) {
-        System.out.println("Diagnosis Results:");
-        
-        System.out.print("Velocity Field: ");
-        for (int i = 0; i < result.velocityField.size; i++) {
-            System.out.print(result.velocityField.data[i] + " ");
-        }
-        System.out.println();
-        
-        System.out.print("Linear Velocity: ");
-        for (int i = 0; i < result.linearVelocity.size; i++) {
-            System.out.printf("%.2f ", result.linearVelocity.data[i]);
-        }
-        System.out.println();
-        
-        System.out.printf("Mahalanobis Distance: %.2f\n", result.mahalanobisDist);
-        System.out.printf("Hyperbolic Speed: %.2f\n", result.hyperSpeed);
-        System.out.println("Unit Vector Consistent: " + result.unitVectorConsistent);
-        System.out.println("Medication Recommendation: " + result.medicationRecommendation);
-    }
-    
+
     public static void main(String[] args) {
-        // Create sample patient data
-        PatientData patient = new PatientData();
-        
-        patient.kidneyBloodFlowNormal = true;
-        patient.diencephalonFlow = true;
-        
-        // Initialize U vector
-        patient.U = new Vector(3);
-        patient.U.data[0] = 1.0;
-        patient.U.data[1] = 2.0;
-        patient.U.data[2] = 3.0;
-        
-        // Initialize omega vector
-        patient.omega = new Vector(2);
-        patient.omega.data[0] = 0.5;
-        patient.omega.data[1] = 1.0;
-        
-        patient.a1 = 0.6;
-        
-        // Initialize F_V vector
-        patient.F_V = new Vector(2);
-        patient.F_V.data[0] = 0.8;
-        patient.F_V.data[1] = 0.9;
-        
-        patient.a2 = 0.4;
-        
-        // Initialize F_T vector
-        patient.F_T = new Vector(2);
-        patient.F_T.data[0] = 0.5;
-        patient.F_T.data[1] = 0.7;
-        
-        // Initialize X vector
-        patient.X = new Vector(2);
-        patient.X.data[0] = 1.5;
-        patient.X.data[1] = 2.0;
-        
-        // Initialize Sigma matrix
-        patient.Sigma = new Matrix(2, 2);
-        patient.Sigma.data[0][0] = 1.0;
-        patient.Sigma.data[0][1] = 0.0;
-        patient.Sigma.data[1][0] = 0.0;
-        patient.Sigma.data[1][1] = 1.0;
-        
-        patient.sechCoeff = -0.3;
-        patient.nu = 0.5;
-        
-        // Initialize unit vectors
-        patient.numUnitVectors = 2;
-        patient.unitVectors = new Vector[patient.numUnitVectors];
-        
-        for (int v = 0; v < patient.numUnitVectors; v++) {
-            patient.unitVectors[v] = new Vector(2);
-            patient.unitVectors[v].data[0] = 1.0;
-            patient.unitVectors[v].data[1] = 0.0;
+        // 예제 데이터
+        Data patient_data = new Data();
+        patient_data.kidney_blood_flow_normal = true;
+        patient_data.diencephalon_flow = true;
+        patient_data.filtered_components = true;
+        patient_data.hormone_levels = true;
+        patient_data.rbc_in_lung = false;
+        patient_data.wbc_mixed = false;
+        patient_data.brain_reverse_flow = false;
+        patient_data.protein_intake = true;
+        patient_data.rbc_wbc_ratio = 1;
+        patient_data.mineral_intake = true;
+        patient_data.rehabilitation_needed = false;
+        patient_data.neural_disorder = false;
+
+        double[][] unit_vectors = {
+            {1.0, 0.0},
+            {1.0, 0.0}
+        };
+
+        // 병질 구분 결과 출력
+        Map<String, String> results = diagnoseWithFourier(patient_data, unit_vectors);
+        for (Map.Entry<String, String> result : results.entrySet()) {
+            System.out.println(result.getKey() + ": " + result.getValue());
         }
-        
-        patient.rbcInLung = false;
-        patient.wbcMixed = false;
-        patient.brainReverseFlow = false;
-        
-        // Run diagnosis
-        DiagnosisResult result = diagnoseWithFourier(patient);
-        
-        // Print results
-        printDiagnosisResult(result);
+    }
+
+    static class Data {
+        boolean kidney_blood_flow_normal;
+        boolean diencephalon_flow;
+        boolean filtered_components;
+        boolean hormone_levels;
+        boolean rbc_in_lung;
+        boolean wbc_mixed;
+        boolean brain_reverse_flow;
+        boolean protein_intake;
+        int rbc_wbc_ratio;
+        boolean mineral_intake;
+        boolean rehabilitation_needed;
+        boolean neural_disorder;
     }
 }
