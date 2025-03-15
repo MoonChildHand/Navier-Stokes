@@ -1,0 +1,42 @@
+#include <iostream>
+#include <iomanip>
+#include <openssl/sha.h>
+
+const int GRID_SIZE = 50;
+
+void update_velocity_field(double u[GRID_SIZE][GRID_SIZE], double viscosity, double density) {
+    double laplacian[GRID_SIZE][GRID_SIZE] = {0};
+
+    for (int i = 1; i < GRID_SIZE - 1; ++i) {
+        for (int j = 1; j < GRID_SIZE - 1; ++j) {
+            laplacian[i][j] =
+                u[i + 1][j] + u[i - 1][j] + u[i][j + 1] + u[i][j - 1] - 4 * u[i][j];
+        }
+    }
+
+    for (int i = 0; i < GRID_SIZE; ++i) {
+        for (int j = 0; j < GRID_SIZE; ++j) {
+            u[i][j] += viscosity * laplacian[i][j] / density;
+        }
+    }
+}
+
+std::string hash_velocity_field(double u[GRID_SIZE][GRID_SIZE]) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256(reinterpret_cast<unsigned char*>(u), sizeof(u), hash);
+
+    std::ostringstream oss;
+    for (unsigned char c : hash) oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+    
+    return oss.str();
+}
+
+int main() {
+    double velocity_field[GRID_SIZE][GRID_SIZE] = {0};
+    
+    update_velocity_field(velocity_field, 0.1, 1.0);
+    
+    std::cout << "Velocity Field Hash: " << hash_velocity_field(velocity_field) << std::endl;
+    
+    return 0;
+}
