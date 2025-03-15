@@ -1,61 +1,340 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
-class NavierStokesFourier
+namespace NavierStokesSimulation
 {
-    private double[,] u;
-    private double viscosity;
-    private double density;
-
-    public NavierStokesFourier(int gridSize, double viscosity, double density)
+    public class NavierStokesWithFourier
     {
-        u = new double[gridSize, gridSize];
-        this.viscosity = viscosity;
-        this.density = density;
-    }
+        private int _gridSize;
+        private int _timeSteps;
+        private double _viscosity;
+        private double _density;
+        private double[,] _u;  // Velocity field (u direction)
+        private double[,] _v;  // Velocity field (v direction)
+        private List<Block> _blockchain;
 
-    public void UpdateVelocityField()
-    {
-        int n = u.GetLength(0);
-        double[,] laplacian = new double[n, n];
-
-        for (int i = 1; i < n - 1; i++)
+        /// <summary>
+        /// Represents a block in the blockchain
+        /// </summary>
+        private class Block
         {
-            for (int j = 1; j < n - 1; j++)
+            public int Index { get; set; }
+            public DateTime Timestamp { get; set; }
+            public string Data { get; set; }
+            public string PreviousHash { get; set; }
+            public string Hash { get; set; }
+        }
+
+        /// <summary>
+        /// Represents a complex number for FFT calculations
+        /// </summary>
+        private struct Complex
+        {
+            public double Real;
+            public double Imag;
+
+            public Complex(double real, double imag)
             {
-                laplacian[i, j] =
-                    u[i + 1, j] + u[i - 1, j] + u[i, j + 1] + u[i, j - 1] - 4 * u[i, j];
+                Real = real;
+                Imag = imag;
+            }
+
+            public double Magnitude()
+            {
+                return Math.Sqrt(Real * Real + Imag * Imag);
+            }
+
+            public override string ToString()
+            {
+                return $"{Real} + {Imag}i";
             }
         }
 
-        for (int i = 0; i < n; i++)
+        /// <summary>
+        /// Initialize NavierStokesWithFourier simulator
+        /// </summary>
+        /// <param name="gridSize">Size of the grid</param>
+        /// <param name="timeSteps">Number of time steps for simulation</param>
+        /// <param name="viscosity">Fluid viscosity</param>
+        /// <param name="density">Fluid density</param>
+        public NavierStokesWithFourier(int gridSize, int timeSteps, double viscosity, double density)
         {
-            for (int j = 0; j < n; j++)
+            _gridSize = gridSize;
+            _timeSteps = timeSteps;
+            _viscosity = viscosity;
+            _density = density;
+            
+            // Initialize velocity fields
+            _u = new double[gridSize, gridSize];
+            _v = new double[gridSize, gridSize];
+            
+            // Initialize blockchain
+            _blockchain = new List<Block>();
+            CreateGenesisBlock();
+        }
+
+        /// <summary>
+        /// Create the first block in the blockchain
+        /// </summary>
+        private void CreateGenesisBlock()
+        {
+            Block genesisBlock = new Block
             {
-                u[i, j] += viscosity * laplacian[i, j] / density;
+                Index = 0,
+                Timestamp = DateTime.Now,
+                Data = "Genesis Block",
+                PreviousHash = "0"
+            };
+            genesisBlock.Hash = HashBlock("Genesis Block" + "0");
+            _blockchain.Add(genesisBlock);
+        }
+
+        /// <summary>
+        /// Create a SHA-256 hash of the given data
+        /// </summary>
+        /// <param name="blockData">Data to hash</param>
+        /// <returns>Hexadecimal hash string</returns>
+        private string HashBlock(string blockData)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(blockData));
+                StringBuilder builder = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    builder.Append(hashBytes[i].ToString("x2"));
+                }
+                return builder.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Add a new block to the blockchain
+        /// </summary>
+        /// <param name="data">Data to store in the block</param>
+        public void AddBlock(string data)
+        {
+            Block previousBlock = _blockchain.Last();
+            Block newBlock = new Block
+            {
+                Index = previousBlock.Index + 1,
+                Timestamp = DateTime.Now,
+                Data = data,
+                PreviousHash = previousBlock.Hash
+            };
+            newBlock.Hash = HashBlock($"{newBlock.Index}{newBlock.Timestamp}{newBlock.Data}{newBlock.PreviousHash}");
+            _blockchain.Add(newBlock);
+        }
+
+        /// <summary>
+        /// Apply Fourier transform to velocity fields
+        /// </summary>
+        /// <returns>Tuple containing FFT results for u and v</returns>
+        public (Complex[,], Complex[,]) ApplyFourierTransform()
+        {
+            // In practice, use a library like Math.NET Numerics for FFT
+            // This is a simplified implementation
+            Complex[,] uFft = new Complex[_gridSize, _gridSize];
+            Complex[,] vFft = new Complex[_gridSize, _gridSize];
+            
+            // Initialize with original values (real part only)
+            for (int i = 0; i < _gridSize; i++)
+            {
+                for (int j = 0; j < _gridSize; j++)
+                {
+                    uFft[i, j] = new Complex(_u[i, j], 0);
+                    vFft[i, j] = new Complex(_v[i, j], 0);
+                }
+            }
+            
+            // Note: In a real implementation, perform actual FFT here
+            // This is a placeholder
+            
+            return (uFft, vFft);
+        }
+
+        /// <summary>
+        /// Update velocity field using Navier-Stokes equations
+        /// </summary>
+        public void UpdateVelocityField()
+        {
+            for (int t = 0; t < _timeSteps; t++)
+            {
+                double[,] laplacianU = new double[_gridSize, _gridSize];
+                double[,] laplacianV = new double[_gridSize, _gridSize];
+                
+                for (int i = 0; i < _gridSize; i++)
+                {
+                    for (int j = 0; j < _gridSize; j++)
+                    {
+                        int ip1 = (i + 1) % _gridSize;
+                        int im1 = (i - 1 + _gridSize) % _gridSize;
+                        int jp1 = (j + 1) % _gridSize;
+                        int jm1 = (j - 1 + _gridSize) % _gridSize;
+                        
+                        laplacianU[i, j] = _u[ip1, j] + _u[im1, j] + 
+                                         _u[i, jp1] + _u[i, jm1] - 
+                                         4 * _u[i, j];
+                                         
+                        laplacianV[i, j] = _v[ip1, j] + _v[im1, j] + 
+                                         _v[i, jp1] + _v[i, jm1] - 
+                                         4 * _v[i, j];
+                    }
+                }
+                
+                // Navier-Stokes time update
+                for (int i = 0; i < _gridSize; i++)
+                {
+                    for (int j = 0; j < _gridSize; j++)
+                    {
+                        _u[i, j] += _viscosity * laplacianU[i, j] / _density;
+                        _v[i, j] += _viscosity * laplacianV[i, j] / _density;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Analyze velocity field characteristics
+        /// </summary>
+        /// <returns>Analysis results as a JSON string</returns>
+        public string AnalyzeVelocityField()
+        {
+            var (uFft, vFft) = ApplyFourierTransform();
+            
+            // Calculate means
+            double uMean = 0, vMean = 0;
+            for (int i = 0; i < _gridSize; i++)
+            {
+                for (int j = 0; j < _gridSize; j++)
+                {
+                    uMean += _u[i, j];
+                    vMean += _v[i, j];
+                }
+            }
+            uMean /= (_gridSize * _gridSize);
+            vMean /= (_gridSize * _gridSize);
+            
+            // Calculate covariance matrix
+            double covUU = 0, covUV = 0, covVV = 0;
+            for (int i = 0; i < _gridSize; i++)
+            {
+                for (int j = 0; j < _gridSize; j++)
+                {
+                    covUU += (_u[i, j] - uMean) * (_u[i, j] - uMean);
+                    covUV += (_u[i, j] - uMean) * (_v[i, j] - vMean);
+                    covVV += (_v[i, j] - vMean) * (_v[i, j] - vMean);
+                }
+            }
+            covUU /= (_gridSize * _gridSize - 1);
+            covUV /= (_gridSize * _gridSize - 1);
+            covVV /= (_gridSize * _gridSize - 1);
+            
+            // Calculate Mahalanobis distance
+            double det = covUU * covVV - covUV * covUV;
+            double invUU = covVV / det;
+            double invUV = -covUV / det;
+            double invVV = covUU / det;
+            
+            double mahalanobisDistance = uMean * uMean * invUU + 
+                                      2 * uMean * vMean * invUV + 
+                                      vMean * vMean * invVV;
+            
+            // Calculate hyperbolic velocity (simplified)
+            Complex[,] hyperbolicVelocityU = new Complex[_gridSize, _gridSize];
+            for (int i = 0; i < _gridSize; i++)
+            {
+                for (int j = 0; j < _gridSize; j++)
+                {
+                    Complex value = uFft[i, j];
+                    double magnitude = value.Magnitude();
+                    double coshValue = Math.Cosh(Math.PI * magnitude);
+                    hyperbolicVelocityU[i, j] = new Complex(
+                        -value.Imag / (coshValue * coshValue),
+                        value.Real / (coshValue * coshValue)
+                    );
+                }
+            }
+            
+            // Create JSON result
+            var result = new
+            {
+                mahalanobis_distance = mahalanobisDistance,
+                hyperbolic_velocity_u = "...", // Simplified for brevity
+                fourier_transform_u = "...",   // Simplified for brevity
+                fourier_transform_v = "..."    // Simplified for brevity
+            };
+            
+            return JsonSerializer.Serialize(result);
+        }
+
+        /// <summary>
+        /// Run simulation and record results in blockchain
+        /// </summary>
+        public void SimulateAndRecord()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                UpdateVelocityField();
+                string analysisResults = AnalyzeVelocityField();
+                
+                // Calculate average FFT magnitude for time
+                double fftSum = 0;
+                var (uFft, _) = ApplyFourierTransform();
+                for (int x = 0; x < _gridSize; x++)
+                {
+                    for (int y = 0; y < _gridSize; y++)
+                    {
+                        fftSum += uFft[x, y].Magnitude();
+                    }
+                }
+                double navierStokesTime = 1.0 / (fftSum / (_gridSize * _gridSize));
+                
+                // Create block data
+                var blockData = new
+                {
+                    velocity_field_u = "...",  // Simplified for brevity
+                    velocity_field_v = "...",  // Simplified for brevity
+                    analysis_results = analysisResults,
+                    navier_stokes_time = navierStokesTime
+                };
+                
+                AddBlock(JsonSerializer.Serialize(blockData));
+            }
+        }
+
+        /// <summary>
+        /// Print blockchain data
+        /// </summary>
+        public void PrintBlockchain()
+        {
+            Console.WriteLine("Blockchain data:");
+            foreach (var block in _blockchain)
+            {
+                Console.WriteLine($"Block #{block.Index}");
+                Console.WriteLine($"  Timestamp: {block.Timestamp}");
+                Console.WriteLine($"  Hash: {block.Hash}");
+                Console.WriteLine($"  Previous Hash: {block.PreviousHash}");
+                
+                string displayData = block.Data.Length > 50 ? 
+                    block.Data.Substring(0, 50) + "..." : block.Data;
+                Console.WriteLine($"  Data: {displayData}");
+                Console.WriteLine();
             }
         }
     }
 
-    public string HashVelocityField()
+    class Program
     {
-        using (SHA256 sha256 = SHA256.Create())
+        static void Main(string[] args)
         {
-            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(u.ToString()));
-            StringBuilder hexString = new StringBuilder();
-            foreach (byte b in hash)
-            {
-                hexString.Append(b.ToString("x2"));
-            }
-            return hexString.ToString();
+            NavierStokesWithFourier nsSimulator = new NavierStokesWithFourier(50, 100, 0.1, 1.0);
+            nsSimulator.SimulateAndRecord();
+            nsSimulator.PrintBlockchain();
         }
-    }
-
-    static void Main(string[] args)
-    {
-        NavierStokesFourier nsf = new NavierStokesFourier(50, 0.1, 1.0);
-        nsf.UpdateVelocityField();
-        Console.WriteLine("Velocity Field Hash: " + nsf.HashVelocityField());
     }
 }
