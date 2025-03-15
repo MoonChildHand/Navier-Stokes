@@ -1,147 +1,23 @@
 import numpy as np
 import hashlib
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from tensorflow import keras
-import tensorflow as tf
 
-class TransparentAIModel:
+class NavierStokesWithFourier:
     """
-    AI 모델의 투명성을 향상시키기 위한 래퍼 클래스
-    - 의사결정 경로 및 특징 중요도를 추적하고 로그로 기록
-    - 블록체인과 연계하여 예측 결과를 안전하게 저장
+    나비에-스토크스 방정식의 푸리에 변환 기반 구현 및 속도장 특성 분석
     """
-    def __init__(self, model, feature_names=None):
-        self.model = model  # AI 모델 저장
-        self.feature_names = feature_names  # 특징 이름 저장
-        self.decision_history = []  # 의사결정 기록 저장
-        self.feature_importance = {}  # 특징 중요도 저장
-        self.hash_history = []  # 해시 기록 저장
-        
-    def compute_feature_importance(self, X, y):
-        """
-        특징 중요도를 계산하는 함수 (Permutation 방법 사용)
-        """
-        base_score = self.model.evaluate(X, y, verbose=0)  # 원래 성능 평가
-        importance = {}
-        
-        for i in range(X.shape[1]):
-            orig_values = X[:, i].copy()  # 원래 값 저장
-            np.random.shuffle(X[:, i])  # 해당 특징을 무작위로 섞음
-            new_score = self.model.evaluate(X, y, verbose=0)  # 변형된 데이터로 평가
-            X[:, i] = orig_values  # 원래 값 복원
-            
-            importance[i] = new_score - base_score  # 성능 감소량을 중요도로 설정
-            
-            # 특징 이름이 주어졌다면 이름을 사용, 없으면 인덱스를 사용
-            if self.feature_names and i < len(self.feature_names):
-                name = self.feature_names[i]
-                self.feature_importance[name] = importance[i]
-            else:
-                self.feature_importance[f"feature_{i}"] = importance[i]
-                
-        return importance
-        
-    def explain_prediction(self, X_sample):
-        """
-        특정 샘플에 대한 예측을 설명하는 함수
-        """
-        prediction = self.model.predict(X_sample)
-        
-        if isinstance(self.model, keras.Model):  # 모델이 Keras 모델인지 확인
-            layer_outputs = []
-            activation_model = keras.Model(
-                inputs=self.model.input,
-                outputs=[layer.output for layer in self.model.layers]
-            )
-            activations = activation_model.predict(X_sample)
-            
-            for i, activation in enumerate(activations):
-                layer_outputs.append({
-                    "layer": self.model.layers[i].name,
-                    "activation_summary": {
-                        "mean": float(np.mean(activation)),
-                        "std": float(np.std(activation)),
-                        "min": float(np.min(activation)),
-                        "max": float(np.max(activation))
-                    }
-                })
-                
-            # 레이어 출력을 해시값으로 저장
-            hash_value = self.hash_layer_outputs(layer_outputs)
-            self.hash_history.append(hash_value)
-            
-            explanation = {
-                "prediction": prediction.tolist(),
-                "layer_activations": layer_outputs,
-                "hash": hash_value
-            }
-            
-            self.decision_history.append(explanation)
-            return explanation
-        else:
-            return {"prediction": prediction.tolist()}
-            
-    def hash_layer_outputs(self, layer_outputs):
-        """
-        레이어 출력값을 해시로 변환하여 블록체인 저장용으로 변환
-        """
-        output_str = str(layer_outputs)
-        return hashlib.sha256(output_str.encode()).hexdigest()
-        
-    def visualize_decision_boundary(self, X, y, feature_idx1=0, feature_idx2=1):
-        """
-        두 개의 특징에 대한 의사결정 경계를 시각화하는 함수
-        """
-        if X.shape[1] > 2:
-            pca = PCA(n_components=2)  # PCA를 사용해 차원 축소
-            X_reduced = pca.fit_transform(X)
-        else:
-            X_reduced = X.copy()
-            
-        # 격자(grid) 생성
-        h = 0.01
-        x_min, x_max = X_reduced[:, 0].min() - 1, X_reduced[:, 0].max() + 1
-        y_min, y_max = X_reduced[:, 1].min() - 1, X_reduced[:, 1].max() + 1
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
-                             np.arange(y_min, y_max, h))
-        
-        # 격자 데이터에 대한 예측 수행
-        if X.shape[1] > 2:
-            grid = np.c_[xx.ravel(), yy.ravel()]
-            grid_orig = pca.inverse_transform(grid)
-            Z = self.model.predict(grid_orig)
-        else:
-            Z = self.model.predict(np.c_[xx.ravel(), yy.ravel()])
-            
-        Z = Z.reshape(xx.shape)
-        
-        # 의사결정 경계 시각화
-        plt.figure(figsize=(10, 8))
-        plt.contourf(xx, yy, Z, alpha=0.8)
-        plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=y, edgecolors='k')
-        
-        if self.feature_names and len(self.feature_names) >= 2:
-            plt.xlabel(self.feature_names[feature_idx1])
-            plt.ylabel(self.feature_names[feature_idx2])
-        else:
-            plt.xlabel(f"Feature {feature_idx1}")
-            plt.ylabel(f"Feature {feature_idx2}")
-            
-        plt.title("의사결정 경계 시각화")
-        return plt
-
-class BlockchainLogger:
-    """
-    블록체인 기술을 활용하여 AI 모델의 예측 및 설명을 안전하게 저장하는 클래스
-    """
-    def __init__(self):
-        self.chain = []
+    def __init__(self, grid_size, time_steps, viscosity, density):
+        self.grid_size = grid_size
+        self.time_steps = time_steps
+        self.viscosity = viscosity
+        self.density = density
+        self.u = np.zeros((grid_size, grid_size))  # 속도장 초기화 (u 방향)
+        self.v = np.zeros((grid_size, grid_size))  # 속도장 초기화 (v 방향)
+        self.blockchain = []  # 블록체인 저장소
         self.create_genesis_block()
-        
+
     def create_genesis_block(self):
         """
-        블록체인의 첫 번째 블록(제네시스 블록) 생성
+        제네시스 블록 생성
         """
         genesis_block = {
             'index': 0,
@@ -150,8 +26,8 @@ class BlockchainLogger:
             'previous_hash': "0",
             'hash': self.hash_block("Genesis Block" + "0")
         }
-        self.chain.append(genesis_block)
-        
+        self.blockchain.append(genesis_block)
+
     def hash_block(self, block_data):
         """
         블록 데이터를 SHA-256 해시로 변환
@@ -159,12 +35,12 @@ class BlockchainLogger:
         if isinstance(block_data, dict):
             block_data = str(block_data)
         return hashlib.sha256(block_data.encode()).hexdigest()
-        
+
     def add_block(self, data):
         """
-        새로운 블록을 체인에 추가
+        새로운 블록 추가
         """
-        previous_block = self.chain[-1]
+        previous_block = self.blockchain[-1]
         new_block = {
             'index': previous_block['index'] + 1,
             'timestamp': np.datetime64('now'),
@@ -173,5 +49,80 @@ class BlockchainLogger:
             'hash': None
         }
         new_block['hash'] = self.hash_block(str(new_block))
-        self.chain.append(new_block)
-        return new_block
+        self.blockchain.append(new_block)
+        
+    def apply_fourier_transform(self):
+        """
+        속도장에 푸리에 변환 적용
+        """
+        u_fft = np.fft.fft2(self.u)  # u 성분의 푸리에 변환
+        v_fft = np.fft.fft2(self.v)  # v 성분의 푸리에 변환
+        
+        return u_fft, v_fft
+
+    def update_velocity_field(self):
+        """
+        나비에-스토크스 방정식을 사용하여 속도장 업데이트
+        """
+        for _ in range(self.time_steps):
+            laplacian_u = np.roll(self.u, 1, axis=0) + np.roll(self.u, -1, axis=0) + \
+                          np.roll(self.u, 1, axis=1) + np.roll(self.u, -1, axis=1) - 4 * self.u
+            laplacian_v = np.roll(self.v, 1, axis=0) + np.roll(self.v, -1, axis=0) + \
+                          np.roll(self.v, 1, axis=1) + np.roll(self.v, -1, axis=1) - 4 * self.v
+            
+            # 나비에-스토크스 시간 업데이트
+            self.u += self.viscosity * laplacian_u / self.density
+            self.v += self.viscosity * laplacian_v / self.density
+
+    def analyze_velocity_field(self):
+        """
+        마할라노비스 거리와 쌍곡선 속도를 기반으로 속도장 특성 분석
+        """
+        u_fft, v_fft = self.apply_fourier_transform()
+        
+        # 마할라노비스 거리 계산 (u와 v의 공분산 행렬 사용)
+        cov_matrix = np.cov([self.u.flatten(), self.v.flatten()])
+        
+        u_mean = np.mean(self.u)
+        v_mean = np.mean(self.v)
+        
+        mahalanobis_distance = (np.array([u_mean, v_mean]) @ 
+                                np.linalg.inv(cov_matrix) @ 
+                                np.array([u_mean, v_mean]).T)
+        
+        # 쌍곡선 속도 계산 (푸리에 도메인에서 sech^2 적용)
+        hyperbolic_velocity_u = -1j * u_fft * (np.cosh(np.pi * u_fft)**-2)
+        
+        return {
+            "mahalanobis_distance": mahalanobis_distance,
+            "hyperbolic_velocity_u": hyperbolic_velocity_u.tolist(),
+            "fourier_transform_u": u_fft.tolist(),
+            "fourier_transform_v": v_fft.tolist()
+        }
+
+    def simulate_and_record(self):
+        """
+        시뮬레이션 실행 및 결과를 블록체인에 기록
+        """
+        for _ in range(10):  # 예제: 10번 반복 시뮬레이션 수행
+            self.update_velocity_field()
+            
+            analysis_results = self.analyze_velocity_field()
+            
+            block_data = {
+                "velocity_field_u": self.u.tolist(),
+                "velocity_field_v": self.v.tolist(),
+                "analysis_results": analysis_results,
+                "navier_stokes_time": 1 / np.mean(np.abs(np.fft.fft2(self.u)))  # 시간 계산
+            }
+            
+            self.add_block(block_data)
+
+# 사용 예제 실행
+ns_simulator = NavierStokesWithFourier(grid_size=50, time_steps=100, viscosity=0.1, density=1.0)
+ns_simulator.simulate_and_record()
+
+print("블록체인 데이터:")
+for block in ns_simulator.blockchain:
+    print(block)
+
