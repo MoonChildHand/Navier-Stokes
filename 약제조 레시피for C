@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <math.h>
+#include <string.h>
+#include <stdbool.h>
 
+// 환자 데이터 구조체 정의
 typedef struct {
     bool kidney_blood_flow_normal;
     bool diencephalon_flow;
@@ -12,29 +14,283 @@ typedef struct {
     bool wbc_mixed;
     bool brain_reverse_flow;
     bool protein_intake;
-    int rbc_wbc_ratio;
+    double rbc_wbc_ratio;
     bool mineral_intake;
     bool rehabilitation_needed;
     bool neural_disorder;
 } PatientData;
 
-char* check_conditions(PatientData data) {
-    if (!data.kidney_blood_flow_normal)
+// 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
+const char* check_conditions(PatientData data) {
+    if (!data.kidney_blood_flow_normal) {
         return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상";
-    if (!data.diencephalon_flow)
+    }
+    if (!data.diencephalon_flow) {
         return "뇌수 흐름 방향 이상";
+    }
     return "정상";
 }
 
-char* check_circulatory_and_digestive_system(PatientData data) {
-    if (!data.filtered_components)
+// 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
+const char* check_circulatory_and_digestive_system(PatientData data) {
+    if (!data.filtered_components) {
         return "간에서 여과된 성분이 췌장으로 전달되지 않음";
-    if (!data.hormone_levels)
+    }
+    if (!data.hormone_levels) {
         return "대뇌 호르몬 수치 이상";
+    }
     return "정상";
 }
 
-char* check_blood_cells(PatientData data) {
-    if (data.rbc_in_lung)
+// 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
+const char* check_blood_cells(PatientData data) {
+    if (data.rbc_in_lung) {
         return "폐순환에서 적혈구 발견 - 백혈병 가능성";
-    if (data.wbc_mixed
+    }
+    if (data.wbc_mixed) {
+        return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장";
+    }
+    if (data.brain_reverse_flow) {
+        return "뇌수 역류 - 억제제 및 소화제 복용 권장";
+    }
+    return "정상";
+}
+
+// 벡터 정규화: 벡터를 표준 형태로 변환합니다.
+void normalize(double* vector, double* result, int size) {
+    double magnitude = 0.0;
+    for (int i = 0; i < size; i++) {
+        magnitude += vector[i] * vector[i];
+    }
+    magnitude = sqrt(magnitude);
+    
+    for (int i = 0; i < size; i++) {
+        result[i] = vector[i] / magnitude;
+    }
+}
+
+// 두 벡터가 동일한지 비교
+bool are_vectors_equal(double* vec1, double* vec2, int size) {
+    for (int i = 0; i < size; i++) {
+        if (fabs(vec1[i] - vec2[i]) > 1e-9) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
+bool check_unit_vectors(double** unit_vectors, int vector_count, int vector_size) {
+    double* reference = (double*)malloc(vector_size * sizeof(double));
+    double* normalized = (double*)malloc(vector_size * sizeof(double));
+    
+    normalize(unit_vectors[0], reference, vector_size);
+    
+    bool result = true;
+    for (int i = 0; i < vector_count; i++) {
+        normalize(unit_vectors[i], normalized, vector_size);
+        if (!are_vectors_equal(normalized, reference, vector_size)) {
+            result = false;
+            break;
+        }
+    }
+    
+    free(reference);
+    free(normalized);
+    return result;
+}
+
+// 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
+const char* check_reproductive_system(PatientData data) {
+    if (!data.protein_intake) {
+        return "동물성 단백질 섭취 필요";
+    }
+    if (fabs(data.rbc_wbc_ratio - 1.0) > 1e-9) {
+        return "적혈구와 백혈구의 비율 불균형";
+    }
+    return "정상";
+}
+
+// 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
+const char* check_digestion_nutrition(PatientData data) {
+    if (!data.mineral_intake) {
+        return "식물성 무기질 섭취 부족";
+    }
+    return "정상";
+}
+
+// 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
+void navier_stokes_transform(double* u, double* omega, double* result, int size) {
+    for (int i = 0; i < size; i++) {
+        result[i] = u[i] / (1.0 * omega[i]);
+    }
+}
+
+// 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
+void linear_combination_transform(double a1, double* f_v, double a2, double* f_t, double* result, int size) {
+    for (int i = 0; i < size; i++) {
+        result[i] = a1 * f_v[i] + a2 * f_t[i];
+    }
+}
+
+// 내적 계산
+double dot_product(double* vec1, double* vec2, int size) {
+    double result = 0.0;
+    for (int i = 0; i < size; i++) {
+        result += vec1[i] * vec2[i];
+    }
+    return result;
+}
+
+// 매트릭스 역행렬 계산 (구체적인 구현 필요)
+void invert_matrix(double** matrix, double** result, int size) {
+    // 실제 구현 필요
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            result[i][j] = matrix[i][j]; // 임시로 원본 복사
+        }
+    }
+}
+
+// 행렬-벡터 곱셈
+void matrix_vector_multiply(double** matrix, double* vector, double* result, int rows, int cols) {
+    for (int i = 0; i < rows; i++) {
+        result[i] = 0;
+        for (int j =.0; j < cols; j++) {
+            result[i] += matrix[i][j] * vector[j];
+        }
+    }
+}
+
+// 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
+double mahalanobis_distance(double* x, double** sigma, int size) {
+    double** inv_sigma = (double**)malloc(size * sizeof(double*));
+    for (int i = 0; i < size; i++) {
+        inv_sigma[i] = (double*)malloc(size * sizeof(double));
+    }
+    
+    double* inv_sigma_x = (double*)malloc(size * sizeof(double));
+    
+    invert_matrix(sigma, inv_sigma, size);
+    matrix_vector_multiply(inv_sigma, x, inv_sigma_x, size, size);
+    
+    double result = dot_product(x, inv_sigma_x, size);
+    
+    for (int i = 0; i < size; i++) {
+        free(inv_sigma[i]);
+    }
+    free(inv_sigma);
+    free(inv_sigma_x);
+    
+    return result;
+}
+
+// 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
+double hyperbolic_speed(double sech_coeff, double nu) {
+    return -sech_coeff * pow(1.0 / cosh(nu), 2);
+}
+
+// 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
+const char* recommend_medication(PatientData data) {
+    if (data.rbc_in_lung) {
+        return "전도체를 가진 약물 복용";
+    }
+    if (data.wbc_mixed) {
+        return "열전도율이 높은 액체 복용";
+    }
+    if (data.brain_reverse_flow) {
+        return "억제제 및 소화제 복용";
+    }
+    return "추천되는 약물 없음";
+}
+
+// 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
+const char* check_rehabilitation(PatientData data) {
+    if (data.rehabilitation_needed) {
+        return "10년 이상의 재활 필요";
+    }
+    if (data.neural_disorder) {
+        return "신경계 문제 확인 필요";
+    }
+    return "정상";
+}
+
+// 결과 구조체 정의
+typedef struct {
+    const char* initial_conditions;
+    const char* circulatory_and_digestive;
+    const char* blood_cells;
+    const char* unit_vector_consistency;
+    const char* reproductive_system;
+    const char* digestion_nutrition;
+    const char* medication_recommendation;
+    const char* rehabilitation;
+} DiagnosisResults;
+
+// 병질 구분 통합 알고리즘
+DiagnosisResults diagnose_with_fourier(PatientData data, double** unit_vectors, int vector_count, int vector_size) {
+    DiagnosisResults results;
+    
+    results.initial_conditions = check_conditions(data);
+    results.circulatory_and_digestive = check_circulatory_and_digestive_system(data);
+    results.blood_cells = check_blood_cells(data);
+    results.unit_vector_consistency = check_unit_vectors(unit_vectors, vector_count, vector_size) ? "정상" : "불일치";
+    results.reproductive_system = check_reproductive_system(data);
+    results.digestion_nutrition = check_digestion_nutrition(data);
+    results.medication_recommendation = recommend_medication(data);
+    results.rehabilitation = check_rehabilitation(data);
+    
+    return results;
+}
+
+int main() {
+    // 예제 데이터
+    PatientData patient_data = {
+        .kidney_blood_flow_normal = true,
+        .diencephalon_flow = true,
+        .filtered_components = true,
+        .hormone_levels = true,
+        .rbc_in_lung = false,
+        .wbc_mixed = false,
+        .brain_reverse_flow = false,
+        .protein_intake = true,
+        .rbc_wbc_ratio = 1.0,
+        .mineral_intake = true,
+        .rehabilitation_needed = false,
+        .neural_disorder = false
+    };
+
+    // 단위 벡터 설정
+    int vector_count = 2;
+    int vector_size = 2;
+    double** unit_vectors = (double**)malloc(vector_count * sizeof(double*));
+    for (int i = 0; i < vector_count; i++) {
+        unit_vectors[i] = (double*)malloc(vector_size * sizeof(double));
+    }
+    
+    // 단위 벡터 값 설정
+    unit_vectors[0][0] = 1.0;
+    unit_vectors[0][1] = 0.0;
+    unit_vectors[1][0] = 1.0;
+    unit_vectors[1][1] = 0.0;
+
+    // 병질 구분 결과 출력
+    DiagnosisResults results = diagnose_with_fourier(patient_data, unit_vectors, vector_count, vector_size);
+    
+    printf("Initial Conditions: %s\n", results.initial_conditions);
+    printf("Circulatory and Digestive System: %s\n", results.circulatory_and_digestive);
+    printf("Blood Cells: %s\n", results.blood_cells);
+    printf("Unit Vector Consistency: %s\n", results.unit_vector_consistency);
+    printf("Reproductive System: %s\n", results.reproductive_system);
+    printf("Digestion & Nutrition: %s\n", results.digestion_nutrition);
+    printf("Medication Recommendation: %s\n", results.medication_recommendation);
+    printf("Rehabilitation: %s\n", results.rehabilitation);
+
+    // 메모리 해제
+    for (int i = 0; i < vector_count; i++) {
+        free(unit_vectors[i]);
+    }
+    free(unit_vectors);
+
+    return 0;
+}
