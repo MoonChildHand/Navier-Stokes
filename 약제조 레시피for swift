@@ -1,0 +1,326 @@
+import Foundation
+
+// Structure to hold complex vector
+class ComplexVector {
+    var data: [Complex<Double>]
+    var size: Int
+    
+    init(size: Int = 0) {
+        self.size = size
+        self.data = [Complex<Double>](repeating: Complex<Double>(0, 0), count: size)
+    }
+}
+
+// Structure to hold vector
+class Vector {
+    var data: [Double]
+    var size: Int
+    
+    init(size: Int = 0) {
+        self.size = size
+        self.data = [Double](repeating: 0.0, count: size)
+    }
+}
+
+// Structure to hold matrix
+class Matrix {
+    var data: [[Double]]
+    var rows: Int
+    var cols: Int
+    
+    init(rows: Int = 0, cols: Int = 0) {
+        self.rows = rows
+        self.cols = cols
+        self.data = Array(repeating: Array(repeating: 0.0, count: cols), count: rows)
+    }
+}
+
+// Complex number struct for Swift
+struct Complex<T: FloatingPoint> {
+    var real: T
+    var imag: T
+    
+    init(_ real: T, _ imag: T) {
+        self.real = real
+        self.imag = imag
+    }
+    
+    static func /(lhs: Complex, rhs: Complex) -> Complex {
+        let denominator = rhs.real * rhs.real + rhs.imag * rhs.imag
+        return Complex(
+            (lhs.real * rhs.real + lhs.imag * rhs.imag) / denominator,
+            (lhs.imag * rhs.real - lhs.real * rhs.imag) / denominator
+        )
+    }
+    
+    static func /(lhs: T, rhs: Complex<T>) -> Complex<T> {
+        return Complex<T>(lhs, 0) / rhs
+    }
+}
+
+// Function to create FFT of a vector (simplified)
+func navier_stokes_transform(U: Vector, omega: Vector) -> ComplexVector {
+    let size = omega.size
+    let result = ComplexVector(size: size)
+    
+    // Simplified FFT calculation
+    for i in 0..<size {
+        result.data[i] = Complex<Double>(U.data[i % U.size], 0) / Complex<Double>(0, omega.data[i])
+    }
+    
+    return result
+}
+
+// Linear combination transform
+func linear_combination_transform(a1: Double, F_V: Vector, a2: Double, F_T: Vector) -> Vector {
+    let size = F_V.size
+    let result = Vector(size: size)
+    
+    for i in 0..<size {
+        result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i]
+    }
+    
+    return result
+}
+
+// Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+func mahalanobis_distance(X: Vector, Sigma: Matrix) -> Double {
+    // Create inverse of Sigma (simplified - assuming identity matrix)
+    let inv_Sigma = Matrix(rows: Sigma.rows, cols: Sigma.cols)
+    for i in 0..<Sigma.rows {
+        for j in 0..<Sigma.cols {
+            inv_Sigma.data[i][j] = (i == j) ? 1.0 / Sigma.data[i][j] : 0
+        }
+    }
+    
+    // Calculate X^T * inv_Sigma * X
+    var result = 0.0
+    for i in 0..<X.size {
+        for j in 0..<X.size {
+            result += X.data[i] * inv_Sigma.data[i][j] * X.data[j]
+        }
+    }
+    
+    return result
+}
+
+// Hyperbolic speed calculation
+func hyperbolic_speed(sech_coeff: Double, nu: Double) -> Double {
+    return -sech_coeff * (1.0 / cosh(nu)) * (1.0 / cosh(nu))
+}
+
+// Check if vectors are unit vectors
+func check_unit_vectors(vectors: [Vector], num_vectors: Int) -> Bool {
+    // Normalize first vector
+    var norm = 0.0
+    for i in 0..<vectors[0].size {
+        norm += vectors[0].data[i] * vectors[0].data[i]
+    }
+    norm = sqrt(norm)
+    
+    let unit_vector = Vector(size: vectors[0].size)
+    
+    for i in 0..<vectors[0].size {
+        unit_vector.data[i] = vectors[0].data[i] / norm
+    }
+    
+    // Check if all vectors are close to the first unit vector
+    var result = true
+    for v in 0..<num_vectors {
+        norm = 0.0
+        for i in 0..<vectors[v].size {
+            norm += vectors[v].data[i] * vectors[v].data[i]
+        }
+        norm = sqrt(norm)
+        
+        // Check if normalized vector is close to the first unit vector
+        var close = true
+        for i in 0..<vectors[v].size {
+            if abs((vectors[v].data[i] / norm) - unit_vector.data[i]) > 1e-10 {
+                close = false
+                break
+            }
+        }
+        
+        if !close {
+            result = false
+            break
+        }
+    }
+    
+    return result
+}
+
+// Recommend medication function
+func recommend_medication(rbc_in_lung: Bool, wbc_mixed: Bool, brain_reverse_flow: Bool) -> String {
+    if rbc_in_lung {
+        return "전도체를 가진 약물 복용"  // Immune boosting
+    } else if wbc_mixed {
+        return "열전도율이 높은 액체 물질 복용"  // WBC mixing
+    } else if brain_reverse_flow {
+        return "소화제, 여과제 등 억제류 마취과 약물 복용"  // Brain reverse flow
+    } else {
+        return "추천되는 약물 없음"
+    }
+}
+
+// Structure for patient data
+class PatientData {
+    var kidney_blood_flow_normal: Bool = false
+    var diencephalon_flow: Bool = false
+    var U: Vector = Vector()
+    var omega: Vector = Vector()
+    var a1: Double = 0.0
+    var F_V: Vector = Vector()
+    var a2: Double = 0.0
+    var F_T: Vector = Vector()
+    var X: Vector = Vector()
+    var Sigma: Matrix = Matrix()
+    var sech_coeff: Double = 0.0
+    var nu: Double = 0.0
+    var unit_vectors: [Vector] = []
+    var num_unit_vectors: Int = 0
+    var rbc_in_lung: Bool = false
+    var wbc_mixed: Bool = false
+    var brain_reverse_flow: Bool = false
+}
+
+// Structure for diagnosis result
+class DiagnosisResult {
+    var velocity_field: ComplexVector = ComplexVector()
+    var linear_velocity: Vector = Vector()
+    var mahalanobis_dist: Double = 0.0
+    var hyper_speed: Double = 0.0
+    var unit_vector_consistent: Bool = false
+    var medication_recommendation: String = ""
+}
+
+// Main diagnostic function
+func diagnose_with_fourier(data: PatientData) -> DiagnosisResult {
+    let result = DiagnosisResult()
+    
+    // Check initial conditions
+    if !(data.kidney_blood_flow_normal && data.diencephalon_flow) {
+        print("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상")
+        // Initialize empty results
+        result.velocity_field = ComplexVector()
+        result.linear_velocity = Vector()
+        result.mahalanobis_dist = 0.0
+        result.hyper_speed = 0.0
+        result.unit_vector_consistent = false
+        result.medication_recommendation = "초기 조건 불만족"
+        return result
+    }
+    
+    // Calculate velocity field using Navier-Stokes
+    result.velocity_field = navier_stokes_transform(U: data.U, omega: data.omega)
+    
+    // Calculate linear velocity combination
+    result.linear_velocity = linear_combination_transform(a1: data.a1, F_V: data.F_V, a2: data.a2, F_T: data.F_T)
+    
+    // Calculate Mahalanobis distance
+    result.mahalanobis_dist = mahalanobis_distance(X: data.X, Sigma: data.Sigma)
+    
+    // Calculate hyperbolic speed
+    result.hyper_speed = hyperbolic_speed(sech_coeff: data.sech_coeff, nu: data.nu)
+    
+    // Check unit vectors consistency
+    result.unit_vector_consistent = check_unit_vectors(vectors: data.unit_vectors, num_vectors: data.num_unit_vectors)
+    
+    // Recommend medication
+    result.medication_recommendation = recommend_medication(rbc_in_lung: data.rbc_in_lung, wbc_mixed: data.wbc_mixed, brain_reverse_flow: data.brain_reverse_flow)
+    
+    return result
+}
+
+func print_diagnosis_result(result: DiagnosisResult) {
+    print("Diagnosis Results:")
+    
+    print("Velocity Field: ", terminator: "")
+    for i in 0..<result.velocity_field.size {
+        print(String(format: "%.2f + %.2fi ", result.velocity_field.data[i].real, result.velocity_field.data[i].imag), terminator: "")
+    }
+    print()
+    
+    print("Linear Velocity: ", terminator: "")
+    for i in 0..<result.linear_velocity.size {
+        print(String(format: "%.2f ", result.linear_velocity.data[i]), terminator: "")
+    }
+    print()
+    
+    print(String(format: "Mahalanobis Distance: %.2f", result.mahalanobis_dist))
+    print(String(format: "Hyperbolic Speed: %.2f", result.hyper_speed))
+    print("Unit Vector Consistent: \(result.unit_vector_consistent ? "true" : "false")")
+    print("Medication Recommendation: \(result.medication_recommendation)")
+}
+
+// Main function
+func main() {
+    // Create sample patient data
+    let patient = PatientData()
+    
+    patient.kidney_blood_flow_normal = true
+    patient.diencephalon_flow = true
+    
+    // Initialize U vector
+    patient.U = Vector(size: 3)
+    patient.U.data = [1.0, 2.0, 3.0]
+    patient.U.size = 3
+    
+    // Initialize omega vector
+    patient.omega = Vector(size: 2)
+    patient.omega.data = [0.5, 1.0]
+    patient.omega.size = 2
+    
+    patient.a1 = 0.6
+    
+    // Initialize F_V vector
+    patient.F_V = Vector(size: 2)
+    patient.F_V.data = [0.8, 0.9]
+    patient.F_V.size = 2
+    
+    patient.a2 = 0.4
+    
+    // Initialize F_T vector
+    patient.F_T = Vector(size: 2)
+    patient.F_T.data = [0.5, 0.7]
+    patient.F_T.size = 2
+    
+    // Initialize X vector
+    patient.X = Vector(size: 2)
+    patient.X.data = [1.5, 2.0]
+    patient.X.size = 2
+    
+    // Initialize Sigma matrix
+    patient.Sigma = Matrix(rows: 2, cols: 2)
+    patient.Sigma.data[0][0] = 1.0
+    patient.Sigma.data[0][1] = 0.0
+    patient.Sigma.data[1][0] = 0.0
+    patient.Sigma.data[1][1] = 1.0
+    
+    patient.sech_coeff = -0.3
+    patient.nu = 0.5
+    
+    // Initialize unit vectors
+    patient.num_unit_vectors = 2
+    patient.unit_vectors = []
+    
+    for _ in 0..<patient.num_unit_vectors {
+        let vector = Vector(size: 2)
+        vector.data = [1.0, 0.0]
+        patient.unit_vectors.append(vector)
+    }
+    
+    patient.rbc_in_lung = false
+    patient.wbc_mixed = false
+    patient.brain_reverse_flow = false
+    
+    // Run diagnosis
+    let result = diagnose_with_fourier(data: patient)
+    
+    // Print results
+    print_diagnosis_result(result: result)
+}
+
+// Run the main function
+main()
