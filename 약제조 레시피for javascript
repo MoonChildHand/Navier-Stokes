@@ -1,314 +1,178 @@
-// Structure to hold complex vector
-class ComplexVector {
-    constructor(size) {
-        this.data = new Array(size).fill(0).map(() => new Complex(0, 0));
-        this.size = size;
+function checkConditions(data) {
+    // 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
+    if (!data.kidney_blood_flow_normal) {
+        return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상";
     }
+    if (!data.diencephalon_flow) {
+        return "뇌수 흐름 방향 이상";
+    }
+    return "정상";
 }
 
-// Structure to hold vector
-class Vector {
-    constructor(size) {
-        this.data = new Array(size).fill(0);
-        this.size = size;
+function checkCirculatoryAndDigestiveSystem(data) {
+    // 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
+    if (!data.filtered_components) {
+        return "간에서 여과된 성분이 췌장으로 전달되지 않음";
     }
+    if (!data.hormone_levels) {
+        return "대뇌 호르몬 수치 이상";
+    }
+    return "정상";
 }
 
-// Structure to hold matrix
-class Matrix {
-    constructor(rows, cols) {
-        this.data = Array(rows).fill().map(() => Array(cols).fill(0));
-        this.rows = rows;
-        this.cols = cols;
+function checkBloodCells(data) {
+    // 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
+    if (data.rbc_in_lung) {
+        return "폐순환에서 적혈구 발견 - 백혈병 가능성";
     }
+    if (data.wbc_mixed) {
+        return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장";
+    }
+    if (data.brain_reverse_flow) {
+        return "뇌수 역류 - 억제제 및 소화제 복용 권장";
+    }
+    return "정상";
 }
 
-// Complex number implementation (as JavaScript doesn't have built-in complex numbers)
-class Complex {
-    constructor(real, imag) {
-        this.real = real;
-        this.imag = imag;
+function checkUnitVectors(unit_vectors) {
+    // 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
+    const reference = normalize(unit_vectors[0]);
+    for (const vector of unit_vectors) {
+        if (!arraysAreEqual(normalize(vector), reference)) {
+            return false;
+        }
     }
-
-    divide(divisor) {
-        const denominator = divisor.real * divisor.real + divisor.imag * divisor.imag;
-        return new Complex(
-            (this.real * divisor.real + this.imag * divisor.imag) / denominator,
-            (this.imag * divisor.real - this.real * divisor.imag) / denominator
-        );
-    }
+    return true;
 }
 
-// Function to create FFT of a vector (simplified)
-function navier_stokes_transform(U, omega) {
-    const size = omega.size;
-    const result = new ComplexVector(size);
-    
-    // Simplified FFT calculation
-    for (let i = 0; i < size; i++) {
-        // Create i * omega.data[i] as a complex number (0, omega.data[i])
-        const divisor = new Complex(0, omega.data[i]);
-        const dividend = new Complex(U.data[i % U.size], 0);
-        result.data[i] = dividend.divide(divisor);
+function normalize(vector) {
+    // 벡터 정규화: 벡터를 표준 형태로 변환합니다.
+    const magnitude = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+    return vector.map(v => v / magnitude);
+}
+
+function arraysAreEqual(arr1, arr2) {
+    if (arr1.length !== arr2.length) return false;
+    for (let i = 0; i < arr1.length; i++) {
+        if (arr1[i] !== arr2[i]) return false;
     }
-    
+    return true;
+}
+
+function checkReproductiveSystem(data) {
+    // 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
+    if (!data.protein_intake) {
+        return "동물성 단백질 섭취 필요";
+    }
+    if (data.rbc_wbc_ratio !== 1) {
+        return "적혈구와 백혈구의 비율 불균형";
+    }
+    return "정상";
+}
+
+function checkDigestionNutrition(data) {
+    // 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
+    if (!data.mineral_intake) {
+        return "식물성 무기질 섭취 부족";
+    }
+    return "정상";
+}
+
+function navierStokesTransform(u, omega) {
+    // 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
+    return u.map((val, i) => val / (1.0 * omega[i]));
+}
+
+function linearCombinationTransform(a1, f_v, a2, f_t) {
+    // 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
+    return f_v.map((val, i) => a1 * f_v[i] + a2 * f_t[i]);
+}
+
+function mahalanobisDistance(x, sigma) {
+    // 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
+    const inv_sigma = invertMatrix(sigma);
+    const inv_sigma_x = matrixVectorMultiply(inv_sigma, x);
+    return dotProduct(x, inv_sigma_x);
+}
+
+function hyperbolicSpeed(sech_coeff, nu) {
+    // 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
+    return -sech_coeff * Math.pow(1.0 / Math.cosh(nu), 2);
+}
+
+function recommendMedication(data) {
+    // 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
+    if (data.rbc_in_lung) {
+        return "전도체를 가진 약물 복용";
+    }
+    if (data.wbc_mixed) {
+        return "열전도율이 높은 액체 복용";
+    }
+    if (data.brain_reverse_flow) {
+        return "억제제 및 소화제 복용";
+    }
+    return "추천되는 약물 없음";
+}
+
+function checkRehabilitation(data) {
+    // 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
+    if (data.rehabilitation_needed) {
+        return "10년 이상의 재활 필요";
+    }
+    if (data.neural_disorder) {
+        return "신경계 문제 확인 필요";
+    }
+    return "정상";
+}
+
+function diagnoseWithFourier(data, unit_vectors) {
+    // 병질 구분 통합 알고리즘
+    const results = {
+        "Initial Conditions": checkConditions(data),
+        "Circulatory and Digestive System": checkCirculatoryAndDigestiveSystem(data),
+        "Blood Cells": checkBloodCells(data),
+        "Unit Vector Consistency": checkUnitVectors(unit_vectors) ? "정상" : "불일치",
+        "Reproductive System": checkReproductiveSystem(data),
+        "Digestion & Nutrition": checkDigestionNutrition(data),
+        "Medication Recommendation": recommendMedication(data),
+        "Rehabilitation": checkRehabilitation(data)
+    };
+    return results;
+}
+
+function invertMatrix(matrix) {
+    // 매트릭스 역행렬 계산 (구체적인 구현 필요)
+    // 실제 구현 필요
+    return matrix;
+}
+
+function matrixVectorMultiply(matrix, vector) {
+    // 행렬-벡터 곱셈
+    const rows = matrix.length;
+    const cols = matrix[0].length;
+    const result = new Array(rows).fill(0);
+    for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+            result[i] += matrix[i][j] * vector[j];
+        }
+    }
     return result;
 }
 
-// Linear combination transform
-function linear_combination_transform(a1, F_V, a2, F_T) {
-    const size = F_V.size;
-    const result = new Vector(size);
-    
-    for (let i = 0; i < size; i++) {
-        result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i];
-    }
-    
-    return result;
+function dotProduct(vec1, vec2) {
+    // 내적 계산
+    return vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
 }
 
-// Function to calculate matrix-vector-matrix product (simplified mahalanobis)
-function mahalanobis_distance(X, Sigma) {
-    // Create inverse of Sigma (simplified - assuming identity matrix)
-    const inv_Sigma = new Matrix(Sigma.rows, Sigma.cols);
-    
-    for (let i = 0; i < Sigma.rows; i++) {
-        for (let j = 0; j < Sigma.cols; j++) {
-            inv_Sigma.data[i][j] = (i === j) ? 1.0 / Sigma.data[i][j] : 0;
-        }
-    }
-    
-    // Calculate X^T * inv_Sigma * X
-    let result = 0.0;
-    for (let i = 0; i < X.size; i++) {
-        for (let j = 0; j < X.size; j++) {
-            result += X.data[i] * inv_Sigma.data[i][j] * X.data[j];
-        }
-    }
-    
-    return result;
-}
-
-// Hyperbolic speed calculation
-function hyperbolic_speed(sech_coeff, nu) {
-    return -sech_coeff * (1.0 / Math.cosh(nu)) * (1.0 / Math.cosh(nu));
-}
-
-// Check if vectors are unit vectors
-function check_unit_vectors(vectors, num_vectors) {
-    // Normalize first vector
-    let norm = 0.0;
-    for (let i = 0; i < vectors[0].size; i++) {
-        norm += vectors[0].data[i] * vectors[0].data[i];
-    }
-    norm = Math.sqrt(norm);
-    
-    const unit_vector = new Vector(vectors[0].size);
-    
-    for (let i = 0; i < vectors[0].size; i++) {
-        unit_vector.data[i] = vectors[0].data[i] / norm;
-    }
-    
-    // Check if all vectors are close to the first unit vector
-    let result = true;
-    for (let v = 0; v < num_vectors; v++) {
-        norm = 0.0;
-        for (let i = 0; i < vectors[v].size; i++) {
-            norm += vectors[v].data[i] * vectors[v].data[i];
-        }
-        norm = Math.sqrt(norm);
-        
-        // Check if normalized vector is close to the first unit vector
-        let close = true;
-        for (let i = 0; i < vectors[v].size; i++) {
-            if (Math.abs((vectors[v].data[i] / norm) - unit_vector.data[i]) > 1e-10) {
-                close = false;
-                break;
-            }
-        }
-        
-        if (!close) {
-            result = false;
-            break;
-        }
-    }
-    
-    return result;
-}
-
-// Recommend medication function
-function recommend_medication(rbc_in_lung, wbc_mixed, brain_reverse_flow) {
-    if (rbc_in_lung) {
-        return "전도체를 가진 약물 복용";  // Immune boosting
-    } else if (wbc_mixed) {
-        return "열전도율이 높은 액체 물질 복용";  // WBC mixing
-    } else if (brain_reverse_flow) {
-        return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
-    } else {
-        return "추천되는 약물 없음";
-    }
-}
-
-// Structure for patient data
-class PatientData {
-    constructor() {
-        this.kidney_blood_flow_normal = false;
-        this.diencephalon_flow = false;
-        this.U = null;
-        this.omega = null;
-        this.a1 = 0;
-        this.F_V = null;
-        this.a2 = 0;
-        this.F_T = null;
-        this.X = null;
-        this.Sigma = null;
-        this.sech_coeff = 0;
-        this.nu = 0;
-        this.unit_vectors = [];
-        this.num_unit_vectors = 0;
-        this.rbc_in_lung = false;
-        this.wbc_mixed = false;
-        this.brain_reverse_flow = false;
-    }
-}
-
-// Structure for diagnosis result
-class DiagnosisResult {
-    constructor() {
-        this.velocity_field = null;
-        this.linear_velocity = null;
-        this.mahalanobis_dist = 0;
-        this.hyper_speed = 0;
-        this.unit_vector_consistent = false;
-        this.medication_recommendation = "";
-    }
-}
-
-// Main diagnostic function
-function diagnose_with_fourier(data) {
-    const result = new DiagnosisResult();
-    
-    // Check initial conditions
-    if (!(data.kidney_blood_flow_normal && data.diencephalon_flow)) {
-        console.log("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상");
-        // Initialize empty results
-        result.velocity_field = new ComplexVector(0);
-        result.linear_velocity = new Vector(0);
-        result.mahalanobis_dist = 0.0;
-        result.hyper_speed = 0.0;
-        result.unit_vector_consistent = false;
-        result.medication_recommendation = "초기 조건 불만족";
-        return result;
-    }
-    
-    // Calculate velocity field using Navier-Stokes
-    result.velocity_field = navier_stokes_transform(data.U, data.omega);
-    
-    // Calculate linear velocity combination
-    result.linear_velocity = linear_combination_transform(data.a1, data.F_V, data.a2, data.F_T);
-    
-    // Calculate Mahalanobis distance
-    result.mahalanobis_dist = mahalanobis_distance(data.X, data.Sigma);
-    
-    // Calculate hyperbolic speed
-    result.hyper_speed = hyperbolic_speed(data.sech_coeff, data.nu);
-    
-    // Check unit vectors consistency
-    result.unit_vector_consistent = check_unit_vectors(data.unit_vectors, data.num_unit_vectors);
-    
-    // Recommend medication
-    result.medication_recommendation = recommend_medication(data.rbc_in_lung, data.wbc_mixed, data.brain_reverse_flow);
-    
-    return result;
-}
-
-function print_diagnosis_result(result) {
-    console.log("Diagnosis Results:");
-    
-    console.log("Velocity Field: ");
-    for (let i = 0; i < result.velocity_field.size; i++) {
-        console.log(`${result.velocity_field.data[i].real.toFixed(2)} + ${result.velocity_field.data[i].imag.toFixed(2)}i `);
-    }
-    
-    console.log("Linear Velocity: ");
-    for (let i = 0; i < result.linear_velocity.size; i++) {
-        console.log(`${result.linear_velocity.data[i].toFixed(2)} `);
-    }
-    
-    console.log(`Mahalanobis Distance: ${result.mahalanobis_dist.toFixed(2)}`);
-    console.log(`Hyperbolic Speed: ${result.hyper_speed.toFixed(2)}`);
-    console.log(`Unit Vector Consistent: ${result.unit_vector_consistent ? "true" : "false"}`);
-    console.log(`Medication Recommendation: ${result.medication_recommendation}`);
-}
-
-// Main function equivalent
-function main() {
-    // Create sample patient data
-    const patient = new PatientData();
-    
-    patient.kidney_blood_flow_normal = true;
-    patient.diencephalon_flow = true;
-    
-    // Initialize U vector
-    patient.U = new Vector(3);
-    patient.U.data[0] = 1.0;
-    patient.U.data[1] = 2.0;
-    patient.U.data[2] = 3.0;
-    
-    // Initialize omega vector
-    patient.omega = new Vector(2);
-    patient.omega.data[0] = 0.5;
-    patient.omega.data[1] = 1.0;
-    
-    patient.a1 = 0.6;
-    
-    // Initialize F_V vector
-    patient.F_V = new Vector(2);
-    patient.F_V.data[0] = 0.8;
-    patient.F_V.data[1] = 0.9;
-    
-    patient.a2 = 0.4;
-    
-    // Initialize F_T vector
-    patient.F_T = new Vector(2);
-    patient.F_T.data[0] = 0.5;
-    patient.F_T.data[1] = 0.7;
-    
-    // Initialize X vector
-    patient.X = new Vector(2);
-    patient.X.data[0] = 1.5;
-    patient.X.data[1] = 2.0;
-    
-    // Initialize Sigma matrix
-    patient.Sigma = new Matrix(2, 2);
-    patient.Sigma.data[0][0] = 1.0;
-    patient.Sigma.data[0][1] = 0.0;
-    patient.Sigma.data[1][0] = 0.0;
-    patient.Sigma.data[1][1] = 1.0;
-    
-    patient.sech_coeff = -0.3;
-    patient.nu = 0.5;
-    
-    // Initialize unit vectors
-    patient.num_unit_vectors = 2;
-    patient.unit_vectors = [];
-    
-    for (let v = 0; v < patient.num_unit_vectors; v++) {
-        const vector = new Vector(2);
-        vector.data[0] = 1.0;
-        vector.data[1] = 0.0;
-        patient.unit_vectors.push(vector);
-    }
-    
-    patient.rbc_in_lung = false;
-    patient.wbc_mixed = false;
-    patient.brain_reverse_flow = false;
-    
-    // Run diagnosis
-    const result = diagnose_with_fourier(patient);
-    
-    // Print results
-    print_diagnosis_result(result);
-}
-
-main();
+// 예제 데이터
+const patient_data = {
+    "kidney_blood_flow_normal": true,
+    "diencephalon_flow": true,
+    "filtered_components": true,
+    "hormone_levels": true,
+    "rbc_in_lung": false,
+    "wbc_mixed": false,
+    "brain_reverse_flow": false,
+    "protein_intake": true,
+    "rbc_wbc_ratio": 1,
+    "mineral_int
