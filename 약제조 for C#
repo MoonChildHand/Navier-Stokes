@@ -1,0 +1,46 @@
+using System;
+using System.Numerics;
+
+public class Diagnosis
+{
+    // 나비에-스토크스 기반 속도장 계산 (C#에서는 FFT 라이브러리 필요)
+    public static Complex NavierStokesTransform(Complex[] U, Complex omega)
+    {
+        // FFT 라이브러리를 사용하여 구현해야 함 (예: Math.NET Numerics)
+        // 여기서는 간단한 예시로 대체
+        return U[0] / (-omega.Imaginary);
+    }
+
+    // 선형결합 관계 계산
+    public static Complex LinearCombinationTransform(double a1, Complex F_V, double a2, Complex F_T)
+    {
+        return a1 * F_V + a2 * F_T;
+    }
+
+    // 마할라노비스 거리 계산 (C#에서는 행렬 연산 라이브러리 필요)
+    public static double MahalanobisDistance(double[] X, double[,] Sigma)
+    {
+        // 행렬 연산 라이브러리를 사용하여 구현해야 함 (예: Math.NET Numerics)
+        // 여기서는 간단한 예시로 대체
+        return X[0] * X[0] / Sigma[0, 0] + X[1] * X[1] / Sigma[1, 1];
+    }
+
+    // 쌍곡선 속력 계산
+    public static double HyperbolicSpeed(double sechCoeff, double nu)
+    {
+        return -sechCoeff * Math.Pow(1 / Math.Cosh(nu), 2);
+    }
+
+    // 단위 벡터 유지 확인 (C#에서는 벡터 연산 라이브러리 필요)
+    public static bool CheckUnitVectors(double[][] vectors)
+    {
+        // 벡터 연산 라이브러리를 사용하여 구현해야 함
+        // 여기서는 간단한 예시로 대체
+        return vectors[0][0] == vectors[1][0] && vectors[0][1] == vectors[1][1];
+    }
+
+    // 의약품 추천 함수
+    public static string RecommendMedication(bool rbcInLung, bool wbcMixed, bool brainReverseFlow)
+    {
+        if (rbcInLung)
+        {
