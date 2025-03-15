@@ -1,0 +1,256 @@
+# Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+def mahalanobis_distance(x, sigma)
+  # Create inverse of Sigma (simplified - assuming identity matrix)
+  inv_sigma = Matrix.new(sigma.rows, sigma.cols)
+  (0...sigma.rows).each do |i|
+    (0...sigma.cols).each do |j|
+      inv_sigma.data[i][j] = (i == j) ? 1.0 / sigma.data[i][j] : 0
+    end
+  end
+  
+  # Calculate X^T * inv_Sigma * X
+  result = 0.0
+  (0...x.size).each do |i|
+    (0...x.size).each do |j|
+      result += x.data[i] * inv_sigma.data[i][j] * x.data[j]
+    end
+  end
+  
+  result
+end
+
+# Hyperbolic speed calculation
+def hyperbolic_speed(sech_coeff, nu)
+  -sech_coeff * (1.0 / Math.cosh(nu)) * (1.0 / Math.cosh(nu))
+end
+
+# Check if vectors are unit vectors
+def check_unit_vectors(vectors, num_vectors)
+  # Normalize first vector
+  norm = 0.0
+  (0...vectors[0].size).each do |i|
+    norm += vectors[0].data[i] * vectors[0].data[i]
+  end
+  norm = Math.sqrt(norm)
+  
+  unit_vector = Vector.new(vectors[0].size)
+  
+  (0...vectors[0].size).each do |i|
+    unit_vector.data[i] = vectors[0].data[i] / norm
+  end
+  
+  # Check if all vectors are close to the first unit vector
+  result = true
+  (0...num_vectors).each do |v|
+    norm = 0.0
+    (0...vectors[v].size).each do |i|
+      norm += vectors[v].data[i] * vectors[v].data[i]
+    end
+    norm = Math.sqrt(norm)
+    
+    # Check if normalized vector is close to the first unit vector
+    close = true
+    (0...vectors[v].size).each do |i|
+      if ((vectors[v].data[i] / norm) - unit_vector.data[i]).abs > 1e-10
+        close = false
+        break
+      end
+    end
+    
+    if !close
+      result = false
+      break
+    end
+  end
+  
+  result
+end
+
+# Recommend medication function
+def recommend_medication(rbc_in_lung, wbc_mixed, brain_reverse_flow)
+  if rbc_in_lung
+    "전도체를 가진 약물 복용"  # Immune boosting
+  elsif wbc_mixed
+    "열전도율이 높은 액체 물질 복용"  # WBC mixing
+  elsif brain_reverse_flow
+    "소화제, 여과제 등 억제류 마취과 약물 복용"  # Brain reverse flow
+  else
+    "추천되는 약물 없음"
+  end
+end
+
+# Structure for patient data
+class PatientData
+  attr_accessor :kidney_blood_flow_normal, :diencephalon_flow,
+                :u, :omega, :a1, :f_v, :a2, :f_t,
+                :x, :sigma, :sech_coeff, :nu,
+                :unit_vectors, :num_unit_vectors,
+                :rbc_in_lung, :wbc_mixed, :brain_reverse_flow
+  
+  def initialize
+    @kidney_blood_flow_normal = false
+    @diencephalon_flow = false
+    @u = nil
+    @omega = nil
+    @a1 = 0.0
+    @f_v = nil
+    @a2 = 0.0
+    @f_t = nil
+    @x = nil
+    @sigma = nil
+    @sech_coeff = 0.0
+    @nu = 0.0
+    @unit_vectors = []
+    @num_unit_vectors = 0
+    @rbc_in_lung = false
+    @wbc_mixed = false
+    @brain_reverse_flow = false
+  end
+end
+
+# Structure for diagnosis result
+class DiagnosisResult
+  attr_accessor :velocity_field, :linear_velocity,
+                :mahalanobis_dist, :hyper_speed,
+                :unit_vector_consistent, :medication_recommendation
+  
+  def initialize
+    @velocity_field = nil
+    @linear_velocity = nil
+    @mahalanobis_dist = 0.0
+    @hyper_speed = 0.0
+    @unit_vector_consistent = false
+    @medication_recommendation = ""
+  end
+end
+
+# Main diagnostic function
+def diagnose_with_fourier(data)
+  result = DiagnosisResult.new
+  
+  # Check initial conditions
+  if !(data.kidney_blood_flow_normal && data.diencephalon_flow)
+    puts "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상"
+    # Initialize empty results
+    result.velocity_field = ComplexVector.new(0)
+    result.linear_velocity = Vector.new(0)
+    result.mahalanobis_dist = 0.0
+    result.hyper_speed = 0.0
+    result.unit_vector_consistent = false
+    result.medication_recommendation = "초기 조건 불만족"
+    return result
+  end
+  
+  # Calculate velocity field using Navier-Stokes
+  result.velocity_field = navier_stokes_transform(data.u, data.omega)
+  
+  # Calculate linear velocity combination
+  result.linear_velocity = linear_combination_transform(data.a1, data.f_v, data.a2, data.f_t)
+  
+  # Calculate Mahalanobis distance
+  result.mahalanobis_dist = mahalanobis_distance(data.x, data.sigma)
+  
+  # Calculate hyperbolic speed
+  result.hyper_speed = hyperbolic_speed(data.sech_coeff, data.nu)
+  
+  # Check unit vectors consistency
+  result.unit_vector_consistent = check_unit_vectors(data.unit_vectors, data.num_unit_vectors)
+  
+  # Recommend medication
+  result.medication_recommendation = recommend_medication(data.rbc_in_lung, data.wbc_mixed, data.brain_reverse_flow)
+  
+  result
+end
+
+def print_diagnosis_result(result)
+  puts "Diagnosis Results:"
+  
+  print "Velocity Field: "
+  (0...result.velocity_field.size).each do |i|
+    print "%.2f + %.2fi " % [result.velocity_field.data[i].real, result.velocity_field.data[i].imag]
+  end
+  puts
+  
+  print "Linear Velocity: "
+  (0...result.linear_velocity.size).each do |i|
+    print "%.2f " % result.linear_velocity.data[i]
+  end
+  puts
+  
+  puts "Mahalanobis Distance: %.2f" % result.mahalanobis_dist
+  puts "Hyperbolic Speed: %.2f" % result.hyper_speed
+  puts "Unit Vector Consistent: %s" % (result.unit_vector_consistent ? "true" : "false")
+  puts "Medication Recommendation: %s" % result.medication_recommendation
+end
+
+# Main function
+def main
+  # Create sample patient data
+  patient = PatientData.new
+  
+  patient.kidney_blood_flow_normal = true
+  patient.diencephalon_flow = true
+  
+  # Initialize U vector
+  patient.u = Vector.new(3)
+  patient.u.data[0] = 1.0
+  patient.u.data[1] = 2.0
+  patient.u.data[2] = 3.0
+  
+  # Initialize omega vector
+  patient.omega = Vector.new(2)
+  patient.omega.data[0] = 0.5
+  patient.omega.data[1] = 1.0
+  
+  patient.a1 = 0.6
+  
+  # Initialize F_V vector
+  patient.f_v = Vector.new(2)
+  patient.f_v.data[0] = 0.8
+  patient.f_v.data[1] = 0.9
+  
+  patient.a2 = 0.4
+  
+  # Initialize F_T vector
+  patient.f_t = Vector.new(2)
+  patient.f_t.data[0] = 0.5
+  patient.f_t.data[1] = 0.7
+  
+  # Initialize X vector
+  patient.x = Vector.new(2)
+  patient.x.data[0] = 1.5
+  patient.x.data[1] = 2.0
+  
+  # Initialize Sigma matrix
+  patient.sigma = Matrix.new(2, 2)
+  patient.sigma.data[0][0] = 1.0
+  patient.sigma.data[0][1] = 0.0
+  patient.sigma.data[1][0] = 0.0
+  patient.sigma.data[1][1] = 1.0
+  
+  patient.sech_coeff = -0.3
+  patient.nu = 0.5
+  
+  # Initialize unit vectors
+  patient.num_unit_vectors = 2
+  patient.unit_vectors = []
+  
+  (0...patient.num_unit_vectors).each do |v|
+    vector = Vector.new(2)
+    vector.data[0] = 1.0
+    vector.data[1] = 0.0
+    patient.unit_vectors << vector
+  end
+  
+  patient.rbc_in_lung = false
+  patient.wbc_mixed = false
+  patient.brain_reverse_flow = false
+  
+  # Run diagnosis
+  result = diagnose_with_fourier(patient)
+  
+  # Print results
+  print_diagnosis_result(result)
+end
+
+main
