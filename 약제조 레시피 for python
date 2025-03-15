@@ -1,90 +1,91 @@
 import numpy as np
 
-# 나비에-스토크스 기반 속도장 계산
-def navier_stokes_transform(U, omega):
-    return np.fft.fft(U) / (1j * omega)
+# 초기 조건 확인
+def check_conditions(data):
+    if not data['kidney_blood_flow_normal']:
+        return "콩팥/달팽이관 혈류 이상"
+    if not data['diencephalon_flow']:
+        return "뇌수 흐름 방향 이상"
+    return "정상"
 
-# 선형결합 관계 계산
-def linear_combination_transform(a1, F_V, a2, F_T):
-    return a1 * F_V + a2 * F_T
+# 혈류 시스템 검사
+def check_circulatory_system(data):
+    if not data['filtered_components']:
+        return "간에서 여과된 성분이 췌장으로 전달되지 않음"
+    if not data['hormone_levels']:
+        return "대뇌 호르몬 이상"
+    return "정상"
 
-# 마할라노비스 거리 계산
-def mahalanobis_distance(X, Sigma):
-    return X.T @ np.linalg.inv(Sigma) @ X
-
-# 쌍곡선 속력 계산
-def hyperbolic_speed(sech_coeff, nu):
-    return -sech_coeff * np.sech(nu)**2
+# 백혈구 및 적혈구 상태 확인
+def check_blood_cells(data):
+    if data['rbc_in_lung']:
+        return "전도체 약물 권장"
+    if data['wbc_mixed']:
+        return "열전도율이 높은 액체 권장"
+    if data['brain_reverse_flow']:
+        return "억제제 및 소화제 권장"
+    return "정상"
 
 # 단위 벡터 유지 확인
-def check_unit_vectors(vectors):
+def check_unit_vectors(data):
+    vectors = data['unit_vectors']
     unit_vectors = [v / np.linalg.norm(v) for v in vectors]
     return np.allclose(unit_vectors[0], unit_vectors)
 
-# 의약품 추천 함수
-def recommend_medication(rbc_in_lung, wbc_mixed, brain_reverse_flow):
-    if rbc_in_lung:
-        return "전도체를 가진 약물 복용"  # 면역 강화
-    elif wbc_mixed:
-        return "열전도율이 높은 액체 물질 복용"  # 백혈구 섞임
-    elif brain_reverse_flow:
-        return "소화제, 여과제 등 억제류 마취과 약물 복용"  # 뇌수 역류
-    else:
-        return "추천되는 약물 없음"
+# 생식 관련 요소 확인
+def check_reproductive_system(data):
+    if not data['protein_intake']:
+        return "동물성 단백질 섭취 필요"
+    if data['rbc_wbc_ratio'] != 1:
+        return "적혈구와 백혈구의 균형 이상"
+    return "정상"
 
-# 병질 구분 알고리즘 통합
-def diagnose_with_fourier(data):
-    # 초기 조건 확인
-    if not (data['kidney_blood_flow_normal'] and data['diencephalon_flow']):
-        return "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상"
-    
-    # 나비에-스토크스 기반 속도장 계산
-    velocity_field = navier_stokes_transform(data['U'], data['omega'])
-    
-    # 선형결합 관계 계산
-    linear_velocity = linear_combination_transform(data['a1'], data['F_V'], data['a2'], data['F_T'])
-    
-    # 마할라노비스 거리 계산
-    mahalanobis_dist = mahalanobis_distance(data['X'], data['Sigma'])
-    
-    # 쌍곡선 속력 계산
-    hyper_speed = hyperbolic_speed(data['sech_coeff'], data['nu'])
-    
-    # 단위 벡터 유지 확인
-    unit_vector_consistent = check_unit_vectors(data['unit_vectors'])
-    
-    # 약물 추천
-    medication = recommend_medication(data['rbc_in_lung'], data['wbc_mixed'], data['brain_reverse_flow'])
+# 소화 및 영양 상태 확인
+def check_digestion_nutrition(data):
+    if not data['mineral_intake']:
+        return "식물성 무기질 섭취 부족"
+    return "정상"
 
-    return {
-        "Velocity Field": velocity_field,
-        "Linear Velocity": linear_velocity,
-        "Mahalanobis Distance": mahalanobis_dist,
-        "Hyperbolic Speed": hyper_speed,
-        "Unit Vector Consistent": unit_vector_consistent,
-        "Medication Recommendation": medication
+# 재활 및 신경 관련 확인
+def check_rehabilitation(data):
+    if data['rehabilitation_needed']:
+        return "10년 이상의 재활 필요"
+    if data['neural_disorder']:
+        return "신경계 문제 확인 필요"
+    return "정상"
+
+# 종합 검사 함수
+def comprehensive_check(data):
+    results = {
+        "Initial Conditions": check_conditions(data),
+        "Circulatory System": check_circulatory_system(data),
+        "Blood Cells": check_blood_cells(data),
+        "Unit Vector Consistency": check_unit_vectors(data),
+        "Reproductive System": check_reproductive_system(data),
+        "Digestion & Nutrition": check_digestion_nutrition(data),
+        "Rehabilitation": check_rehabilitation(data)
     }
+    return results
 
-# Example input data
+# 예제 데이터
 patient_data = {
-    'kidney_blood_flow_normal': True,  # 콩팥/달팽이관 혈류 정상 여부
-    'diencephalon_flow': True,  # 뇌수 흐름 (신체 -> 소뇌 -> 눈 -> 대뇌)
-    'U': np.array([1, 2, 3]),
-    'omega': np.array([0.5, 1.0]),
-    'a1': 0.6,
-    'F_V': np.array([0.8, 0.9]),
-    'a2': 0.4,
-    'F_T': np.array([0.5, 0.7]),
-    'X': np.array([1.5, 2]),
-    'Sigma': np.array([[1, 0], [0, 1]]),
-    'sech_coeff': -0.3,
-    'nu': np.array([0.5]),
-    'unit_vectors': [np.array([1, 0]), np.array([1, 0])],  # 단위 벡터
-    'rbc_in_lung': False,  # 폐순환에서 적혈구 발견 여부
-    'wbc_mixed': False,  # 백혈구 섞임 여부
-    'brain_reverse_flow': False  # 뇌수 역류 여부
+    'kidney_blood_flow_normal': True,
+    'diencephalon_flow': True,
+    'filtered_components': True,
+    'hormone_levels': True,
+    'rbc_in_lung': False,
+    'wbc_mixed': False,
+    'brain_reverse_flow': False,
+    'unit_vectors': [np.array([1, 0]), np.array([1, 0])],
+    'protein_intake': True,
+    'rbc_wbc_ratio': 1,
+    'mineral_intake': True,
+    'rehabilitation_needed': False,
+    'neural_disorder': False
 }
 
-result = diagnose_with_fourier(patient_data)
-print(result)
+# 결과 출력
+results = comprehensive_check(patient_data)
+for key, value in results.items():
+    print(f"{key}: {value}")
 
