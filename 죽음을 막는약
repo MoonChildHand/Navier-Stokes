@@ -1,9 +1,90 @@
-병질을 구분할때 첫번째로 고려 해야될 사항은 콩팥과 달팽이관 간 사이의 모세혈관에서
-나오는 혈액순환이 정상수치 여야 하며 그다음으로 심혈관계에서 뇌수의 방향이 두뇌보다 
-신체에 먼저 접촉후 소뇌를통해 눈을통해 대뇌로 흐르는지 파악하는것이 우선순위다 그뒤 
-간으로 여과된 소화성분이 췌장으로 정맥이 흐르는지 확인후 대뇌에서 흐르는 호르몬이 일정치 
-이상이 되어 골격근으로 옮겨져 적혈구의 분열이 정상적으로 복사되어 백혈구로 인젝션 되는가 인데 
-단위벡터가 모든 장기에 모두 같은 벡터를 유지해야 폐순환에서 문제가 없다 폐순환에서 적혈구가 나오지 
-않는다면 백혈병을 의심해야 하며 면역을 강화하기 위해선 전도체를 가진 약물을 복용해야하고 백혈구가 섞여 
-나온다면 모든 고체는 전도체이기 때문에 열전도율이 높은 액체로 된 물질을 복용해야 하며 뇌수로 역류한다면
-그때는 소화제와 여과제등 억제류 마취과 약물을 복용해야한다.
+import numpy as np
+
+# 나비에-스토크스 기반 속도장 계산
+def navier_stokes_transform(U, omega):
+    return np.fft.fft(U) / (1j * omega)
+
+# 선형결합 관계 계산
+def linear_combination_transform(a1, F_V, a2, F_T):
+    return a1 * F_V + a2 * F_T
+
+# 마할라노비스 거리 계산
+def mahalanobis_distance(X, Sigma):
+    return X.T @ np.linalg.inv(Sigma) @ X
+
+# 쌍곡선 속력 계산
+def hyperbolic_speed(sech_coeff, nu):
+    return -sech_coeff * np.sech(nu)**2
+
+# 단위 벡터 유지 확인
+def check_unit_vectors(vectors):
+    unit_vectors = [v / np.linalg.norm(v) for v in vectors]
+    return np.allclose(unit_vectors[0], unit_vectors)
+
+# 의약품 추천 함수
+def recommend_medication(rbc_in_lung, wbc_mixed, brain_reverse_flow):
+    if rbc_in_lung:
+        return "전도체를 가진 약물 복용"  # 면역 강화
+    elif wbc_mixed:
+        return "열전도율이 높은 액체 물질 복용"  # 백혈구 섞임
+    elif brain_reverse_flow:
+        return "소화제, 여과제 등 억제류 마취과 약물 복용"  # 뇌수 역류
+    else:
+        return "추천되는 약물 없음"
+
+# 병질 구분 알고리즘 통합
+def diagnose_with_fourier(data):
+    # 초기 조건 확인
+    if not (data['kidney_blood_flow_normal'] and data['diencephalon_flow']):
+        return "초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상"
+    
+    # 나비에-스토크스 기반 속도장 계산
+    velocity_field = navier_stokes_transform(data['U'], data['omega'])
+    
+    # 선형결합 관계 계산
+    linear_velocity = linear_combination_transform(data['a1'], data['F_V'], data['a2'], data['F_T'])
+    
+    # 마할라노비스 거리 계산
+    mahalanobis_dist = mahalanobis_distance(data['X'], data['Sigma'])
+    
+    # 쌍곡선 속력 계산
+    hyper_speed = hyperbolic_speed(data['sech_coeff'], data['nu'])
+    
+    # 단위 벡터 유지 확인
+    unit_vector_consistent = check_unit_vectors(data['unit_vectors'])
+    
+    # 약물 추천
+    medication = recommend_medication(data['rbc_in_lung'], data['wbc_mixed'], data['brain_reverse_flow'])
+
+    return {
+        "Velocity Field": velocity_field,
+        "Linear Velocity": linear_velocity,
+        "Mahalanobis Distance": mahalanobis_dist,
+        "Hyperbolic Speed": hyper_speed,
+        "Unit Vector Consistent": unit_vector_consistent,
+        "Medication Recommendation": medication
+    }
+
+# Example input data
+patient_data = {
+    'kidney_blood_flow_normal': True,  # 콩팥/달팽이관 혈류 정상 여부
+    'diencephalon_flow': True,  # 뇌수 흐름 (신체 -> 소뇌 -> 눈 -> 대뇌)
+    'U': np.array([1, 2, 3]),
+    'omega': np.array([0.5, 1.0]),
+    'a1': 0.6,
+    'F_V': np.array([0.8, 0.9]),
+    'a2': 0.4,
+    'F_T': np.array([0.5, 0.7]),
+    'X': np.array([1.5, 2]),
+    'Sigma': np.array([[1, 0], [0, 1]]),
+    'sech_coeff': -0.3,
+    'nu': np.array([0.5]),
+    'unit_vectors': [np.array([1, 0]), np.array([1, 0])],  # 단위 벡터
+    'rbc_in_lung': False,  # 폐순환에서 적혈구 발견 여부
+    'wbc_mixed': False,  # 백혈구 섞임 여부
+    'brain_reverse_flow': False  # 뇌수 역류 여부
+}
+
+result = diagnose_with_fourier(patient_data)
+print(result)
+
