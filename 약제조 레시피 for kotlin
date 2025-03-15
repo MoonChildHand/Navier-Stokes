@@ -1,0 +1,63 @@
+import kotlin.math.*
+
+// Structure to hold complex vector
+class ComplexVector(var size: Int = 0) {
+    var data: Array<Complex> = Array(size) { Complex(0.0, 0.0) }
+}
+
+// Structure to hold vector
+class Vector(var size: Int = 0) {
+    var data: DoubleArray = DoubleArray(size) { 0.0 }
+}
+
+// Structure to hold matrix
+class Matrix(var rows: Int = 0, var cols: Int = 0) {
+    var data: Array<DoubleArray> = Array(rows) { DoubleArray(cols) { 0.0 } }
+}
+
+// Complex number class for Kotlin
+data class Complex(val real: Double, val imag: Double) {
+    operator fun div(other: Complex): Complex {
+        val denominator = other.real * other.real + other.imag * other.imag
+        return Complex(
+            (real * other.real + imag * other.imag) / denominator,
+            (imag * other.real - real * other.imag) / denominator
+        )
+    }
+    
+    companion object {
+        fun fromReal(real: Double): Complex = Complex(real, 0.0)
+        val I = Complex(0.0, 1.0)
+    }
+}
+
+// Function to create FFT of a vector (simplified)
+fun navierStokesTransform(U: Vector, omega: Vector): ComplexVector {
+    val size = omega.size
+    val result = ComplexVector(size)
+    
+    // Simplified FFT calculation
+    for (i in 0 until size) {
+        result.data[i] = Complex.fromReal(U.data[i % U.size]) / Complex(0.0, omega.data[i])
+    }
+    
+    return result
+}
+
+// Linear combination transform
+fun linearCombinationTransform(a1: Double, F_V: Vector, a2: Double, F_T: Vector): Vector {
+    val size = F_V.size
+    val result = Vector(size)
+    
+    for (i in 0 until size) {
+        result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i]
+    }
+    
+    return result
+}
+
+// Function to calculate matrix-vector-matrix product (simplified mahalanobis)
+fun mahalanobisDistance(X: Vector, Sigma: Matrix): Double {
+    // Create inverse of Sigma (simplified - assuming identity matrix)
+    val invSigma = Matrix(Sigma.rows, Sigma.cols)
+    for (i in 0 until Sigma.rows)
