@@ -1,63 +1,35 @@
-import kotlin.math.*
+import kotlin.math.sqrt
+import kotlin.math.cosh
 
-// Structure to hold complex vector
-class ComplexVector(var size: Int = 0) {
-    var data: Array<Complex> = Array(size) { Complex(0.0, 0.0) }
+fun checkConditions(data: Map<String, Boolean>): String {
+    if (!data["kidney_blood_flow_normal"]!!) return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상"
+    if (!data["diencephalon_flow"]!!) return "뇌수 흐름 방향 이상"
+    return "정상"
 }
 
-// Structure to hold vector
-class Vector(var size: Int = 0) {
-    var data: DoubleArray = DoubleArray(size) { 0.0 }
+fun checkCirculatoryAndDigestiveSystem(data: Map<String, Boolean>): String {
+    if (!data["filtered_components"]!!) return "간에서 여과된 성분이 췌장으로 전달되지 않음"
+    if (!data["hormone_levels"]!!) return "대뇌 호르몬 수치 이상"
+    return "정상"
 }
 
-// Structure to hold matrix
-class Matrix(var rows: Int = 0, var cols: Int = 0) {
-    var data: Array<DoubleArray> = Array(rows) { DoubleArray(cols) { 0.0 } }
+fun checkBloodCells(data: Map<String, Boolean>): String {
+    if (data["rbc_in_lung"]!!) return "폐순환에서 적혈구 발견 - 백혈병 가능성"
+    if (data["wbc_mixed"]!!) return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장"
+    if (data["brain_reverse_flow"]!!) return "뇌수 역류 - 억제제 및 소화제 복용 권장"
+    return "정상"
 }
 
-// Complex number class for Kotlin
-data class Complex(val real: Double, val imag: Double) {
-    operator fun div(other: Complex): Complex {
-        val denominator = other.real * other.real + other.imag * other.imag
-        return Complex(
-            (real * other.real + imag * other.imag) / denominator,
-            (imag * other.real - real * other.imag) / denominator
-        )
-    }
-    
-    companion object {
-        fun fromReal(real: Double): Complex = Complex(real, 0.0)
-        val I = Complex(0.0, 1.0)
-    }
+fun checkUnitVectors(unitVectors: List<List<Double>>): Boolean {
+    val reference = normalize(unitVectors[0])
+    return unitVectors.all { normalize(it) == reference }
 }
 
-// Function to create FFT of a vector (simplified)
-fun navierStokesTransform(U: Vector, omega: Vector): ComplexVector {
-    val size = omega.size
-    val result = ComplexVector(size)
-    
-    // Simplified FFT calculation
-    for (i in 0 until size) {
-        result.data[i] = Complex.fromReal(U.data[i % U.size]) / Complex(0.0, omega.data[i])
-    }
-    
-    return result
+fun normalize(vector: List<Double>): List<Double> {
+    val magnitude = sqrt(vector.sumOf { it * it })
+    return vector.map { it / magnitude }
 }
 
-// Linear combination transform
-fun linearCombinationTransform(a1: Double, F_V: Vector, a2: Double, F_T: Vector): Vector {
-    val size = F_V.size
-    val result = Vector(size)
-    
-    for (i in 0 until size) {
-        result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i]
-    }
-    
-    return result
-}
-
-// Function to calculate matrix-vector-matrix product (simplified mahalanobis)
-fun mahalanobisDistance(X: Vector, Sigma: Matrix): Double {
-    // Create inverse of Sigma (simplified - assuming identity matrix)
-    val invSigma = Matrix(Sigma.rows, Sigma.cols)
-    for (i in 0 until Sigma.rows)
+fun checkReproductiveSystem(data: Map<String, Any>): String {
+    if (data["protein_intake"] as Boolean != true) return "동물성 단백질 섭취 필요"
+    if (data["rbc_wbc_ratio"] as Int != 1
