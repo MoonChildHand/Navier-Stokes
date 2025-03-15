@@ -1,113 +1,243 @@
 package main
 
 import (
-    "crypto/sha256"
-    "encoding/hex"
-    "fmt"
-    "strconv"
-    "strings"
-    "time"
+	"fmt"
+	"math"
 )
 
-type Block struct {
-    Index        int
-    Timestamp    string
-    Data         string
-    PreviousHash string
-    Hash         string
+// 데이터 구조체 정의
+type PatientData struct {
+	kidneyBloodFlowNormal bool
+	diencephalonFlow      bool
+	filteredComponents    bool
+	hormoneLevels         bool
+	rbcInLung             bool
+	wbcMixed              bool
+	brainReverseFlow      bool
+	proteinIntake         bool
+	rbcWbcRatio           float64
+	mineralIntake         bool
+	rehabilitationNeeded  bool
+	neuralDisorder        bool
 }
 
-type NavierStokesWithFourier struct {
-    GridSize     int
-    TimeSteps    int
-    Viscosity    float64
-    Density      float64
-    U            [][]float64
-    V            [][]float64
-    Blockchain   []Block
+// 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
+func checkConditions(data PatientData) string {
+	if !data.kidneyBloodFlowNormal {
+		return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상"
+	}
+	if !data.diencephalonFlow {
+		return "뇌수 흐름 방향 이상"
+	}
+	return "정상"
 }
 
-// Function to compute hash for a block
-func hashBlock(blockData string) string {
-    hash := sha256.Sum256([]byte(blockData))
-    return hex.EncodeToString(hash[:])
+// 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
+func checkCirculatoryAndDigestiveSystem(data PatientData) string {
+	if !data.filteredComponents {
+		return "간에서 여과된 성분이 췌장으로 전달되지 않음"
+	}
+	if !data.hormoneLevels {
+		return "대뇌 호르몬 수치 이상"
+	}
+	return "정상"
 }
 
-// Function to get the current timestamp
-func getCurrentTimestamp() string {
-    return time.Now().Format("2006-01-02 15:04:05")
+// 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
+func checkBloodCells(data PatientData) string {
+	if data.rbcInLung {
+		return "폐순환에서 적혈구 발견 - 백혈병 가능성"
+	}
+	if data.wbcMixed {
+		return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장"
+	}
+	if data.brainReverseFlow {
+		return "뇌수 역류 - 억제제 및 소화제 복용 권장"
+	}
+	return "정상"
 }
 
-// Create the genesis block
-func (ns *NavierStokesWithFourier) createGenesisBlock() {
-    genesisBlock := Block{
-        Index:        0,
-        Timestamp:    getCurrentTimestamp(),
-        Data:         "Genesis Block",
-        PreviousHash: "0",
-        Hash:         hashBlock("Genesis Block0"),
-    }
-    ns.Blockchain = append(ns.Blockchain, genesisBlock)
+// 벡터 정규화: 벡터를 표준 형태로 변환합니다.
+func normalize(vector []float64) []float64 {
+	magnitude := 0.0
+	for _, v := range vector {
+		magnitude += v * v
+	}
+	magnitude = math.Sqrt(magnitude)
+	
+	normalized := make([]float64, len(vector))
+	for i, v := range vector {
+		normalized[i] = v / magnitude
+	}
+	return normalized
 }
 
-// Add a new block to the blockchain
-func (ns *NavierStokesWithFourier) addBlock(data string) {
-    previousBlock := ns.Blockchain[len(ns.Blockchain)-1]
-
-    blockData := fmt.Sprintf("%d%s%s%s", previousBlock.Index+1, getCurrentTimestamp(), data, previousBlock.Hash)
-    newBlock := Block{
-        Index:        previousBlock.Index + 1,
-        Timestamp:    getCurrentTimestamp(),
-        Data:         data,
-        PreviousHash: previousBlock.Hash,
-        Hash:         hashBlock(blockData),
-    }
-
-    ns.Blockchain = append(ns.Blockchain, newBlock)
+// 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
+func checkUnitVectors(unitVectors [][]float64) bool {
+	reference := normalize(unitVectors[0])
+	
+	for _, vector := range unitVectors {
+		normalized := normalize(vector)
+		
+		// 벡터 비교
+		for i := range normalized {
+			if normalized[i] != reference[i] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
-// Initialize the simulator
-func NewNavierStokesWithFourier(gridSize, timeSteps int, viscosity, density float64) *NavierStokesWithFourier {
-    u := make([][]float64, gridSize)
-    v := make([][]float64, gridSize)
-    for i := 0; i < gridSize; i++ {
-        u[i] = make([]float64, gridSize)
-        v[i] = make([]float64, gridSize)
-    }
-
-    ns := &NavierStokesWithFourier{
-        GridSize:  gridSize,
-        TimeSteps: timeSteps,
-        Viscosity: viscosity,
-        Density:   density,
-        U:         u,
-        V:         v,
-    }
-    ns.createGenesisBlock()
-    return ns
+// 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
+func checkReproductiveSystem(data PatientData) string {
+	if !data.proteinIntake {
+		return "동물성 단백질 섭취 필요"
+	}
+	if data.rbcWbcRatio != 1 {
+		return "적혈구와 백혈구의 비율 불균형"
+	}
+	return "정상"
 }
 
-// Print blockchain data
-func (ns *NavierStokesWithFourier) printBlockchain() {
-    fmt.Println("Blockchain data:")
-    for _, block := range ns.Blockchain {
-        fmt.Printf("Block #%d\n", block.Index)
-        fmt.Printf("  Timestamp: %s\n", block.Timestamp)
-        fmt.Printf("  Hash: %s\n", block.Hash)
-        fmt.Printf("  Previous Hash: %s\n", block.PreviousHash)
-        fmt.Printf("  Data: %.50s...\n\n", block.Data)
-    }
+// 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
+func checkDigestionNutrition(data PatientData) string {
+	if !data.mineralIntake {
+		return "식물성 무기질 섭취 부족"
+	}
+	return "정상"
+}
+
+// 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
+func navierStokesTransform(u []float64, omega []float64) []float64 {
+	result := make([]float64, len(u))
+	for i := range u {
+		result[i] = u[i] / (1.0 * omega[i])
+	}
+	return result
+}
+
+// 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
+func linearCombinationTransform(a1 float64, fV []float64, a2 float64, fT []float64) []float64 {
+	result := make([]float64, len(fV))
+	for i := range fV {
+		result[i] = a1*fV[i] + a2*fT[i]
+	}
+	return result
+}
+
+// 내적 계산
+func dotProduct(vec1 []float64, vec2 []float64) float64 {
+	result := 0.0
+	for i := range vec1 {
+		result += vec1[i] * vec2[i]
+	}
+	return result
+}
+
+// 매트릭스 역행렬 계산 (간단한 구현, 실제로는 더 복잡한 구현 필요)
+func invertMatrix(matrix [][]float64) [][]float64 {
+	// 실제 구현 필요
+	return matrix
+}
+
+// 행렬-벡터 곱셈
+func matrixVectorMultiply(matrix [][]float64, vector []float64) []float64 {
+	rows := len(matrix)
+	cols := len(matrix[0])
+	result := make([]float64, rows)
+	
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			result[i] += matrix[i][j] * vector[j]
+		}
+	}
+	return result
+}
+
+// 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
+func mahalanobisDistance(x []float64, sigma [][]float64) float64 {
+	invSigmaX := matrixVectorMultiply(invertMatrix(sigma), x)
+	return dotProduct(x, invSigmaX)
+}
+
+// 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
+func hyperbolicSpeed(sechCoeff float64, nu float64) float64 {
+	return -sechCoeff * math.Pow(1.0/math.Cosh(nu), 2)
+}
+
+// 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
+func recommendMedication(data PatientData) string {
+	if data.rbcInLung {
+		return "전도체를 가진 약물 복용"
+	}
+	if data.wbcMixed {
+		return "열전도율이 높은 액체 복용"
+	}
+	if data.brainReverseFlow {
+		return "억제제 및 소화제 복용"
+	}
+	return "추천되는 약물 없음"
+}
+
+// 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
+func checkRehabilitation(data PatientData) string {
+	if data.rehabilitationNeeded {
+		return "10년 이상의 재활 필요"
+	}
+	if data.neuralDisorder {
+		return "신경계 문제 확인 필요"
+	}
+	return "정상"
+}
+
+// 병질 구분 통합 알고리즘
+func diagnoseWithFourier(data PatientData, unitVectors [][]float64) map[string]string {
+	results := make(map[string]string)
+	
+	results["Initial Conditions"] = checkConditions(data)
+	results["Circulatory and Digestive System"] = checkCirculatoryAndDigestiveSystem(data)
+	results["Blood Cells"] = checkBloodCells(data)
+	
+	if checkUnitVectors(unitVectors) {
+		results["Unit Vector Consistency"] = "정상"
+	} else {
+		results["Unit Vector Consistency"] = "불일치"
+	}
+	
+	results["Reproductive System"] = checkReproductiveSystem(data)
+	results["Digestion & Nutrition"] = checkDigestionNutrition(data)
+	results["Medication Recommendation"] = recommendMedication(data)
+	results["Rehabilitation"] = checkRehabilitation(data)
+	
+	return results
 }
 
 func main() {
-    ns := NewNavierStokesWithFourier(50, 100, 0.1, 1.0)
+	// 예제 데이터
+	patientData := PatientData{
+		kidneyBloodFlowNormal: true,
+		diencephalonFlow:      true,
+		filteredComponents:    true,
+		hormoneLevels:         true,
+		rbcInLung:             false,
+		wbcMixed:              false,
+		brainReverseFlow:      false,
+		proteinIntake:         true,
+		rbcWbcRatio:           1,
+		mineralIntake:         true,
+		rehabilitationNeeded:  false,
+		neuralDisorder:        false,
+	}
 
-    // Example simulation and block addition
-    for i := 0; i < 10; i++ {
-        data := fmt.Sprintf("Simulation Step Data %d", i)
-        ns.addBlock(data)
-    }
+	unitVectors := [][]float64{
+		{1.0, 0.0},
+		{1.0, 0.0},
+	}
 
-    ns.printBlockchain()
+	// 병질 구분 결과 출력
+	results := diagnoseWithFourier(patientData, unitVectors)
+	for key, value := range results {
+		fmt.Printf("%s: %s\n", key, value)
+	}
 }
-
