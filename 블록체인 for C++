@@ -1,0 +1,243 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <complex>
+#include <chrono>
+#include <string>
+#include <sstream>
+#include <iomanip>
+#include <openssl/sha.h>
+
+class NavierStokesWithFourier {
+private:
+    int grid_size;
+    int time_steps;
+    double viscosity;
+    double density;
+    std::vector<std::vector<double>> u; // Velocity field (u direction)
+    std::vector<std::vector<double>> v; // Velocity field (v direction)
+    
+    struct Block {
+        int index;
+        std::string timestamp;
+        std::string data;
+        std::string previous_hash;
+        std::string hash;
+    };
+    
+    std::vector<Block> blockchain;
+    
+    std::string hash_block(const std::string& block_data) {
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256;
+        SHA256_Init(&sha256);
+        SHA256_Update(&sha256, block_data.c_str(), block_data.length());
+        SHA256_Final(hash, &sha256);
+        
+        std::stringstream ss;
+        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+        }
+        return ss.str();
+    }
+    
+    std::string get_current_timestamp() {
+        auto now = std::chrono::system_clock::now();
+        auto now_time_t = std::chrono::system_clock::to_time_t(now);
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&now_time_t), "%Y-%m-%d %H:%M:%S");
+        return ss.str();
+    }
+    
+    void create_genesis_block() {
+        Block genesis_block;
+        genesis_block.index = 0;
+        genesis_block.timestamp = get_current_timestamp();
+        genesis_block.data = "Genesis Block";
+        genesis_block.previous_hash = "0";
+        genesis_block.hash = hash_block("Genesis Block" + "0");
+        blockchain.push_back(genesis_block);
+    }
+    
+public:
+    NavierStokesWithFourier(int grid_size, int time_steps, double viscosity, double density) 
+        : grid_size(grid_size), time_steps(time_steps), viscosity(viscosity), density(density) {
+        // Initialize velocity fields
+        u.resize(grid_size, std::vector<double>(grid_size, 0.0));
+        v.resize(grid_size, std::vector<double>(grid_size, 0.0));
+        
+        // Create genesis block
+        create_genesis_block();
+    }
+    
+    void add_block(const std::string& data) {
+        Block previous_block = blockchain.back();
+        
+        Block new_block;
+        new_block.index = previous_block.index + 1;
+        new_block.timestamp = get_current_timestamp();
+        new_block.data = data;
+        new_block.previous_hash = previous_block.hash;
+        
+        std::stringstream block_data_ss;
+        block_data_ss << new_block.index << new_block.timestamp 
+                     << new_block.data << new_block.previous_hash;
+        new_block.hash = hash_block(block_data_ss.str());
+        
+        blockchain.push_back(new_block);
+    }
+    
+    std::pair<std::vector<std::vector<std::complex<double>>>, 
+              std::vector<std::vector<std::complex<double>>>> apply_fourier_transform() {
+        // Simple 2D FFT implementation (in a real application, you'd use FFTW or similar library)
+        std::vector<std::vector<std::complex<double>>> u_fft(grid_size, 
+            std::vector<std::complex<double>>(grid_size));
+        std::vector<std::vector<std::complex<double>>> v_fft(grid_size, 
+            std::vector<std::complex<double>>(grid_size));
+        
+        // Very simplified FFT (this is not an efficient implementation)
+        for (int i = 0; i < grid_size; i++) {
+            for (int j = 0; j < grid_size; j++) {
+                u_fft[i][j] = std::complex<double>(u[i][j], 0);
+                v_fft[i][j] = std::complex<double>(v[i][j], 0);
+            }
+        }
+        
+        // Note: In a real implementation, you would use a proper FFT library here
+        
+        return {u_fft, v_fft};
+    }
+    
+    void update_velocity_field() {
+        for (int _ = 0; _ < time_steps; _++) {
+            std::vector<std::vector<double>> laplacian_u(grid_size, std::vector<double>(grid_size, 0.0));
+            std::vector<std::vector<double>> laplacian_v(grid_size, std::vector<double>(grid_size, 0.0));
+            
+            for (int i = 0; i < grid_size; i++) {
+                for (int j = 0; j < grid_size; j++) {
+                    int ip1 = (i + 1) % grid_size;
+                    int im1 = (i - 1 + grid_size) % grid_size;
+                    int jp1 = (j + 1) % grid_size;
+                    int jm1 = (j - 1 + grid_size) % grid_size;
+                    
+                    laplacian_u[i][j] = u[ip1][j] + u[im1][j] + u[i][jp1] + u[i][jm1] - 4 * u[i][j];
+                    laplacian_v[i][j] = v[ip1][j] + v[im1][j] + v[i][jp1] + v[i][jm1] - 4 * v[i][j];
+                }
+            }
+            
+            // Navier-Stokes time update
+            for (int i = 0; i < grid_size; i++) {
+                for (int j = 0; j < grid_size; j++) {
+                    u[i][j] += viscosity * laplacian_u[i][j] / density;
+                    v[i][j] += viscosity * laplacian_v[i][j] / density;
+                }
+            }
+        }
+    }
+    
+    std::string analyze_velocity_field() {
+        auto [u_fft, v_fft] = apply_fourier_transform();
+        
+        // Calculate means
+        double u_mean = 0.0, v_mean = 0.0;
+        for (int i = 0; i < grid_size; i++) {
+            for (int j = 0; j < grid_size; j++) {
+                u_mean += u[i][j];
+                v_mean += v[i][j];
+            }
+        }
+        u_mean /= (grid_size * grid_size);
+        v_mean /= (grid_size * grid_size);
+        
+        // Calculate covariance matrix
+        double cov_uu = 0.0, cov_uv = 0.0, cov_vv = 0.0;
+        for (int i = 0; i < grid_size; i++) {
+            for (int j = 0; j < grid_size; j++) {
+                cov_uu += (u[i][j] - u_mean) * (u[i][j] - u_mean);
+                cov_uv += (u[i][j] - u_mean) * (v[i][j] - v_mean);
+                cov_vv += (v[i][j] - v_mean) * (v[i][j] - v_mean);
+            }
+        }
+        cov_uu /= (grid_size * grid_size - 1);
+        cov_uv /= (grid_size * grid_size - 1);
+        cov_vv /= (grid_size * grid_size - 1);
+        
+        // Calculate mahalanobis distance
+        double det = cov_uu * cov_vv - cov_uv * cov_uv;
+        double inv_uu = cov_vv / det;
+        double inv_uv = -cov_uv / det;
+        double inv_vv = cov_uu / det;
+        
+        double mahalanobis_distance = u_mean * u_mean * inv_uu + 
+                                     2 * u_mean * v_mean * inv_uv + 
+                                     v_mean * v_mean * inv_vv;
+        
+        // Calculate hyperbolic velocity (simplified)
+        std::vector<std::vector<std::complex<double>>> hyperbolic_velocity_u(grid_size,
+            std::vector<std::complex<double>>(grid_size));
+        
+        for (int i = 0; i < grid_size; i++) {
+            for (int j = 0; j < grid_size; j++) {
+                std::complex<double> value = u_fft[i][j];
+                double cosh_value = std::cosh(M_PI * std::abs(value));
+                hyperbolic_velocity_u[i][j] = -std::complex<double>(0, 1) * value / (cosh_value * cosh_value);
+            }
+        }
+        
+        // Create JSON-like string for results
+        std::stringstream ss;
+        ss << "{ \"mahalanobis_distance\": " << mahalanobis_distance;
+        ss << ", \"hyperbolic_velocity_u\": [...]"; // Simplified for brevity
+        ss << ", \"fourier_transform_u\": [...]";   // Simplified for brevity
+        ss << ", \"fourier_transform_v\": [...]";   // Simplified for brevity
+        ss << " }";
+        
+        return ss.str();
+    }
+    
+    void simulate_and_record() {
+        for (int _ = 0; _ < 10; _++) {
+            update_velocity_field();
+            std::string analysis_results = analyze_velocity_field();
+            
+            // Calculate average FFT magnitude for time
+            double fft_sum = 0.0;
+            auto [u_fft, _] = apply_fourier_transform();
+            for (int i = 0; i < grid_size; i++) {
+                for (int j = 0; j < grid_size; j++) {
+                    fft_sum += std::abs(u_fft[i][j]);
+                }
+            }
+            double navier_stokes_time = 1.0 / (fft_sum / (grid_size * grid_size));
+            
+            // Create JSON-like string for block data
+            std::stringstream ss;
+            ss << "{ \"velocity_field_u\": [...], ";      // Simplified for brevity
+            ss << "\"velocity_field_v\": [...], ";        // Simplified for brevity
+            ss << "\"analysis_results\": " << analysis_results << ", ";
+            ss << "\"navier_stokes_time\": " << navier_stokes_time;
+            ss << " }";
+            
+            add_block(ss.str());
+        }
+    }
+    
+    void print_blockchain() {
+        std::cout << "Blockchain data:" << std::endl;
+        for (const auto& block : blockchain) {
+            std::cout << "Block #" << block.index << std::endl;
+            std::cout << "  Timestamp: " << block.timestamp << std::endl;
+            std::cout << "  Hash: " << block.hash << std::endl;
+            std::cout << "  Previous Hash: " << block.previous_hash << std::endl;
+            std::cout << "  Data: " << (block.data.length() > 50 ? block.data.substr(0, 50) + "..." : block.data) << std::endl;
+            std::cout << std::endl;
+        }
+    }
+};
+
+int main() {
+    NavierStokesWithFourier ns_simulator(50, 100, 0.1, 1.0);
+    ns_simulator.simulate_and_record();
+    ns_simulator.print_blockchain();
+    return 0;
+}
