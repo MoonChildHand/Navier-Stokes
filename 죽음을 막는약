@@ -1,89 +1,9 @@
-import numpy as np
-from scipy.fftpack import fft, ifft
-
-# 약물 데이터 입력 (예: 전도체 성질)
-def drug_data_properties(conductivity, thermal_conductivity):
-    return np.array([conductivity, thermal_conductivity])
-
-# 푸리에 변환 함수
-def apply_fourier_transform(data):
-    return fft(data)
-
-# 나비에-스토크스 시간 변환
-def navier_stokes_transform(frequency_domain_data):
-    return frequency_domain_data / (1j * np.arange(1, len(frequency_domain_data) + 1))
-
-# 선형결합 관계 설정
-def linear_combination_transform(fourier_data, coeff_a1, coeff_a2):
-    term_1 = coeff_a1 * (-1j * np.tanh(np.pi * fourier_data))
-    term_2 = coeff_a2 * (fourier_data / (1j * np.arange(1, len(fourier_data) + 1)))
-    return term_1 + term_2
-
-# 열전도율 계산 및 신경제 모델링
-def calculate_thermal_conductivity(transformed_data):
-    return np.abs(transformed_data) ** 2  # 열전도율은 에너지 밀도로 표현 가능
-
-# 메인 알고리즘 실행
-def main():
-    # 약물 초기 데이터 (예: 전기 전도율 및 초기 열전도율)
-    drug_properties = drug_data_properties(conductivity=0.8, thermal_conductivity=0.5)
-    
-    # 푸리에 변환 적용
-    fourier_transformed = apply_fourier_transform(drug_properties)
-    
-    # 나비에-스토크스 시간 변환
-    transformed_navier_stokes = navier_stokes_transform(fourier_transformed)
-    
-    # 선형결합 관계 반영
-    final_transformed = linear_combination_transform(transformed_navier_stokes, coeff_a1=0.7, coeff_a2=0.3)
-    
-    # 열전도율 계산
-    thermal_conductivity = calculate_thermal_conductivity(final_transformed)
-    
-    print("신경제로 변환된 열전도율:", thermal_conductivity)
-
-# 실행
-main()
-알고리즘
-속도장 및 약물 특성 분석:
-
-약물의 전도체 특성을 푸리에 변환을 통해 분석합니다.
-
-나비에-스토크스 방정식을 기반으로 약물의 동역학적 특성을 모델링합니다.
-
-푸리에 변환 적용:
-
-약물의 물리적 성질(전도율, 열전도율)을 푸리에 공간에서 변환합니다.
-
-선형결합 관계를 설정하여 약물의 전도체 특성을 열전도율로 변환합니다.
-
-변환 결과 조정:
-
-마할라노비스 거리, 쌍곡선 속력, 나비에-스토크스 시간 등의 요소를 조합하여 최적화된 열전도율 값을 계산합니다.
-
-신경제 모델링:
-
-최종적으로 계산된 열전도율 값을 신경제 모델에 적용하여 약물의 새로운 물리적 성질을 도출합니다.
-
-코드 설명
-약물 데이터 입력:
-
-약물의 초기 물리적 특성(예: 전기 전도율)을 입력받습니다.
-
-푸리에 변환:
-
-데이터를 푸리에 공간으로 변환하여 주파수 영역에서 분석합니다.
-
-나비에-스토크스 시간 변환:
-
-주파수 영역 데이터를 나비에-스토크스 시간 관계를 통해 수정합니다.
-
-선형결합:
-
-두 개의 계수를 사용하여 약물의 특성을 조정합니다.
-
-열전도율 계산:
-
-최종적으로 열전도율을 계산하여 새로운 신경제 모델로 변환합니다.
-
-이 코드는 주어진 수학적 표현과 이미지를 기반으로 작성되었으며, 약물의 물리적 특성을 열전도율로 변환하는 데 적합합니다.
+병질을 구분할때 첫번째로 고려 해야될 사항은 콩팥과 달팽이관 간 사이의 모세혈관에서
+나오는 혈액순환이 정상수치 여야 하며 그다음으로 심혈관계에서 뇌수의 방향이 두뇌보다 
+신체에 먼저 접촉후 소뇌를통해 눈을통해 대뇌로 흐르는지 파악하는것이 우선순위다 그뒤 
+간으로 여과된 소화성분이 췌장으로 정맥이 흐르는지 확인후 대뇌에서 흐르는 호르몬이 일정치 
+이상이 되어 골격근으로 옮겨져 적혈구의 분열이 정상적으로 복사되어 백혈구로 인젝션 되는가 인데 
+단위벡터가 모든 장기에 모두 같은 벡터를 유지해야 폐순환에서 문제가 없다 폐순환에서 적혈구가 나오지 
+않는다면 백혈병을 의심해야 하며 면역을 강화하기 위해선 전도체를 가진 약물을 복용해야하고 백혈구가 섞여 
+나온다면 모든 고체는 전도체이기 때문에 열전도율이 높은 액체로 된 물질을 복용해야 하며 뇌수로 역류한다면
+그때는 소화제와 여과제등 억제류 마취과 약물을 복용해야한다.
