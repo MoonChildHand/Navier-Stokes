@@ -1,243 +1,212 @@
 #include <iostream>
 #include <vector>
+#include <map>
 #include <cmath>
-#include <complex>
-#include <chrono>
-#include <string>
-#include <sstream>
-#include <iomanip>
-#include <openssl/sha.h>
+#include <numeric>
+#include <algorithm>
 
-class NavierStokesWithFourier {
-private:
-    int grid_size;
-    int time_steps;
-    double viscosity;
-    double density;
-    std::vector<std::vector<double>> u; // Velocity field (u direction)
-    std::vector<std::vector<double>> v; // Velocity field (v direction)
-    
-    struct Block {
-        int index;
-        std::string timestamp;
-        std::string data;
-        std::string previous_hash;
-        std::string hash;
-    };
-    
-    std::vector<Block> blockchain;
-    
-    std::string hash_block(const std::string& block_data) {
-        unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256_CTX sha256;
-        SHA256_Init(&sha256);
-        SHA256_Update(&sha256, block_data.c_str(), block_data.length());
-        SHA256_Final(hash, &sha256);
-        
-        std::stringstream ss;
-        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
-        }
-        return ss.str();
+using namespace std;
+
+// 초기 조건 확인: 신체의 기본 혈류 상태를 확인합니다.
+string CheckConditions(const map<string, bool>& data) {
+    if (!data.at("kidney_blood_flow_normal"))
+        return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상";
+    if (!data.at("diencephalon_flow"))
+        return "뇌수 흐름 방향 이상";
+    return "정상";
+}
+
+// 심혈관계와 소화 시스템 검사: 간에서 여과된 성분이 췌장으로 전달되는지 확인합니다.
+string CheckCirculatoryAndDigestiveSystem(const map<string, bool>& data) {
+    if (!data.at("filtered_components"))
+        return "간에서 여과된 성분이 췌장으로 전달되지 않음";
+    if (!data.at("hormone_levels"))
+        return "대뇌 호르몬 수치 이상";
+    return "정상";
+}
+
+// 백혈구 및 적혈구 상태 검사: 혈액 성분의 이상 여부를 확인합니다.
+string CheckBloodCells(const map<string, bool>& data) {
+    if (data.at("rbc_in_lung"))
+        return "폐순환에서 적혈구 발견 - 백혈병 가능성";
+    if (data.at("wbc_mixed"))
+        return "백혈구 섞임 - 열전도율이 높은 액체 복용 권장";
+    if (data.at("brain_reverse_flow"))
+        return "뇌수 역류 - 억제제 및 소화제 복용 권장";
+    return "정상";
+}
+
+// 단위 벡터 유지 확인: 장기의 벡터가 일치하는지 확인합니다.
+bool CheckUnitVectors(const vector<vector<double>>& unitVectors) {
+    vector<double> reference = Normalize(unitVectors[0]);
+    for (const auto& vector : unitVectors) {
+        if (Normalize(vector) != reference)
+            return false;
     }
-    
-    std::string get_current_timestamp() {
-        auto now = std::chrono::system_clock::now();
-        auto now_time_t = std::chrono::system_clock::to_time_t(now);
-        std::stringstream ss;
-        ss << std::put_time(std::localtime(&now_time_t), "%Y-%m-%d %H:%M:%S");
-        return ss.str();
+    return true;
+}
+
+// 벡터 정규화: 벡터를 표준 형태로 변환합니다.
+vector<double> Normalize(const vector<double>& vector) {
+    double magnitude = sqrt(inner_product(vector.begin(), vector.end(), vector.begin(), 0.0));
+    vector<double> normalizedVector(vector.size());
+    transform(vector.begin(), vector.end(), normalizedVector.begin(), [magnitude](double v){ return v / magnitude; });
+    return normalizedVector;
+}
+
+// 생식 관련 요소 확인: 단백질 섭취 여부와 혈구 비율 확인.
+string CheckReproductiveSystem(const map<string, object>& data) {
+    if (!any_cast<bool>(data.at("protein_intake")))
+        return "동물성 단백질 섭취 필요";
+    if (any_cast<int>(data.at("rbc_wbc_ratio")) != 1)
+        return "적혈구와 백혈구의 비율 불균형";
+    return "정상";
+}
+
+// 소화 및 영양 상태 검사: 식물성 무기질 섭취 여부를 확인합니다.
+string CheckDigestionNutrition(const map<string, bool>& data) {
+    if (!data.at("mineral_intake"))
+        return "식물성 무기질 섭취 부족";
+    return "정상";
+}
+
+// 나비에-스토크스 기반 속도장 계산: 유체의 속도를 계산합니다.
+vector<double> NavierStokesTransform(const vector<double>& U, const vector<double>& omega) {
+    vector<double> result(U.size());
+    for (size_t i = 0; i < U.size(); ++i) {
+        result[i] = U[i] / (1.0 * omega[i]);
     }
-    
-    void create_genesis_block() {
-        Block genesis_block;
-        genesis_block.index = 0;
-        genesis_block.timestamp = get_current_timestamp();
-        genesis_block.data = "Genesis Block";
-        genesis_block.previous_hash = "0";
-        genesis_block.hash = hash_block("Genesis Block" + "0");
-        blockchain.push_back(genesis_block);
+    return result;
+}
+
+// 선형 결합 계산: 물리적 데이터를 선형 결합하여 새로운 벡터를 만듭니다.
+vector<double> LinearCombinationTransform(double a1, const vector<double>& F_V, double a2, const vector<double>& F_T) {
+    vector<double> result(F_V.size());
+    for (size_t i = 0; i < F_V.size(); ++i) {
+        result[i] = a1 * F_V[i] + a2 * F_T[i];
     }
-    
-public:
-    NavierStokesWithFourier(int grid_size, int time_steps, double viscosity, double density) 
-        : grid_size(grid_size), time_steps(time_steps), viscosity(viscosity), density(density) {
-        // Initialize velocity fields
-        u.resize(grid_size, std::vector<double>(grid_size, 0.0));
-        v.resize(grid_size, std::vector<double>(grid_size, 0.0));
-        
-        // Create genesis block
-        create_genesis_block();
-    }
-    
-    void add_block(const std::string& data) {
-        Block previous_block = blockchain.back();
-        
-        Block new_block;
-        new_block.index = previous_block.index + 1;
-        new_block.timestamp = get_current_timestamp();
-        new_block.data = data;
-        new_block.previous_hash = previous_block.hash;
-        
-        std::stringstream block_data_ss;
-        block_data_ss << new_block.index << new_block.timestamp 
-                     << new_block.data << new_block.previous_hash;
-        new_block.hash = hash_block(block_data_ss.str());
-        
-        blockchain.push_back(new_block);
-    }
-    
-    std::pair<std::vector<std::vector<std::complex<double>>>, 
-              std::vector<std::vector<std::complex<double>>>> apply_fourier_transform() {
-        // Simple 2D FFT implementation (in a real application, you'd use FFTW or similar library)
-        std::vector<std::vector<std::complex<double>>> u_fft(grid_size, 
-            std::vector<std::complex<double>>(grid_size));
-        std::vector<std::vector<std::complex<double>>> v_fft(grid_size, 
-            std::vector<std::complex<double>>(grid_size));
-        
-        // Very simplified FFT (this is not an efficient implementation)
-        for (int i = 0; i < grid_size; i++) {
-            for (int j = 0; j < grid_size; j++) {
-                u_fft[i][j] = std::complex<double>(u[i][j], 0);
-                v_fft[i][j] = std::complex<double>(v[i][j], 0);
-            }
-        }
-        
-        // Note: In a real implementation, you would use a proper FFT library here
-        
-        return {u_fft, v_fft};
-    }
-    
-    void update_velocity_field() {
-        for (int _ = 0; _ < time_steps; _++) {
-            std::vector<std::vector<double>> laplacian_u(grid_size, std::vector<double>(grid_size, 0.0));
-            std::vector<std::vector<double>> laplacian_v(grid_size, std::vector<double>(grid_size, 0.0));
-            
-            for (int i = 0; i < grid_size; i++) {
-                for (int j = 0; j < grid_size; j++) {
-                    int ip1 = (i + 1) % grid_size;
-                    int im1 = (i - 1 + grid_size) % grid_size;
-                    int jp1 = (j + 1) % grid_size;
-                    int jm1 = (j - 1 + grid_size) % grid_size;
-                    
-                    laplacian_u[i][j] = u[ip1][j] + u[im1][j] + u[i][jp1] + u[i][jm1] - 4 * u[i][j];
-                    laplacian_v[i][j] = v[ip1][j] + v[im1][j] + v[i][jp1] + v[i][jm1] - 4 * v[i][j];
-                }
-            }
-            
-            // Navier-Stokes time update
-            for (int i = 0; i < grid_size; i++) {
-                for (int j = 0; j < grid_size; j++) {
-                    u[i][j] += viscosity * laplacian_u[i][j] / density;
-                    v[i][j] += viscosity * laplacian_v[i][j] / density;
-                }
-            }
+    return result;
+}
+
+// 마할라노비스 거리 계산: 데이터의 이상 여부를 판별합니다.
+double MahalanobisDistance(const vector<double>& X, const vector<vector<double>>& Sigma) {
+    vector<double> invSigmaX = MatrixVectorMultiply(InvertMatrix(Sigma), X);
+    return DotProduct(X, invSigmaX);
+}
+
+// 쌍곡선 속력 계산: 특정 물리적 환경에서의 속력을 계산합니다.
+double HyperbolicSpeed(double sechCoeff, double nu) {
+    return -sechCoeff * pow(1.0 / cosh(nu), 2);
+}
+
+// 약물 추천: 특정 상황에서 적절한 약물을 추천합니다.
+string RecommendMedication(const map<string, bool>& data) {
+    if (data.at("rbc_in_lung"))
+        return "전도체를 가진 약물 복용";
+    if (data.at("wbc_mixed"))
+        return "열전도율이 높은 액체 복용";
+    if (data.at("brain_reverse_flow"))
+        return "억제제 및 소화제 복용";
+    return "추천되는 약물 없음";
+}
+
+// 재활 및 신경 상태 확인: 신경 상태와 재활 필요 여부를 점검합니다.
+string CheckRehabilitation(const map<string, bool>& data) {
+    if (data.at("rehabilitation_needed"))
+        return "10년 이상의 재활 필요";
+    if (data.at("neural_disorder"))
+        return "신경계 문제 확인 필요";
+    return "정상";
+}
+
+// 병질 구분 통합 알고리즘
+map<string, string> DiagnoseWithFourier(
+    const map<string, object>& data, const vector<vector<double>>& unitVectors) {
+    map<string, string> results;
+    map<string, bool> boolData;
+    for (const auto& pair : data) {
+        if (pair.second.type() == typeid(bool)) {
+            boolData[pair.first] = any_cast<bool>(pair.second);
         }
     }
-    
-    std::string analyze_velocity_field() {
-        auto [u_fft, v_fft] = apply_fourier_transform();
-        
-        // Calculate means
-        double u_mean = 0.0, v_mean = 0.0;
-        for (int i = 0; i < grid_size; i++) {
-            for (int j = 0; j < grid_size; j++) {
-                u_mean += u[i][j];
-                v_mean += v[i][j];
-            }
-        }
-        u_mean /= (grid_size * grid_size);
-        v_mean /= (grid_size * grid_size);
-        
-        // Calculate covariance matrix
-        double cov_uu = 0.0, cov_uv = 0.0, cov_vv = 0.0;
-        for (int i = 0; i < grid_size; i++) {
-            for (int j = 0; j < grid_size; j++) {
-                cov_uu += (u[i][j] - u_mean) * (u[i][j] - u_mean);
-                cov_uv += (u[i][j] - u_mean) * (v[i][j] - v_mean);
-                cov_vv += (v[i][j] - v_mean) * (v[i][j] - v_mean);
-            }
-        }
-        cov_uu /= (grid_size * grid_size - 1);
-        cov_uv /= (grid_size * grid_size - 1);
-        cov_vv /= (grid_size * grid_size - 1);
-        
-        // Calculate mahalanobis distance
-        double det = cov_uu * cov_vv - cov_uv * cov_uv;
-        double inv_uu = cov_vv / det;
-        double inv_uv = -cov_uv / det;
-        double inv_vv = cov_uu / det;
-        
-        double mahalanobis_distance = u_mean * u_mean * inv_uu + 
-                                     2 * u_mean * v_mean * inv_uv + 
-                                     v_mean * v_mean * inv_vv;
-        
-        // Calculate hyperbolic velocity (simplified)
-        std::vector<std::vector<std::complex<double>>> hyperbolic_velocity_u(grid_size,
-            std::vector<std::complex<double>>(grid_size));
-        
-        for (int i = 0; i < grid_size; i++) {
-            for (int j = 0; j < grid_size; j++) {
-                std::complex<double> value = u_fft[i][j];
-                double cosh_value = std::cosh(M_PI * std::abs(value));
-                hyperbolic_velocity_u[i][j] = -std::complex<double>(0, 1) * value / (cosh_value * cosh_value);
-            }
-        }
-        
-        // Create JSON-like string for results
-        std::stringstream ss;
-        ss << "{ \"mahalanobis_distance\": " << mahalanobis_distance;
-        ss << ", \"hyperbolic_velocity_u\": [...]"; // Simplified for brevity
-        ss << ", \"fourier_transform_u\": [...]";   // Simplified for brevity
-        ss << ", \"fourier_transform_v\": [...]";   // Simplified for brevity
-        ss << " }";
-        
-        return ss.str();
-    }
-    
-    void simulate_and_record() {
-        for (int _ = 0; _ < 10; _++) {
-            update_velocity_field();
-            std::string analysis_results = analyze_velocity_field();
-            
-            // Calculate average FFT magnitude for time
-            double fft_sum = 0.0;
-            auto [u_fft, _] = apply_fourier_transform();
-            for (int i = 0; i < grid_size; i++) {
-                for (int j = 0; j < grid_size; j++) {
-                    fft_sum += std::abs(u_fft[i][j]);
-                }
-            }
-            double navier_stokes_time = 1.0 / (fft_sum / (grid_size * grid_size));
-            
-            // Create JSON-like string for block data
-            std::stringstream ss;
-            ss << "{ \"velocity_field_u\": [...], ";      // Simplified for brevity
-            ss << "\"velocity_field_v\": [...], ";        // Simplified for brevity
-            ss << "\"analysis_results\": " << analysis_results << ", ";
-            ss << "\"navier_stokes_time\": " << navier_stokes_time;
-            ss << " }";
-            
-            add_block(ss.str());
+
+    results["Initial Conditions"] = CheckConditions(boolData);
+    results["Circulatory and Digestive System"] = CheckCirculatoryAndDigestiveSystem(boolData);
+    results["Blood Cells"] = CheckBloodCells(boolData);
+    results["Unit Vector Consistency"] = CheckUnitVectors(unitVectors) ? "정상" : "불일치";
+    results["Reproductive System"] = CheckReproductiveSystem(data);
+    results["Digestion & Nutrition"] = CheckDigestionNutrition(boolData);
+    results["Medication Recommendation"] = RecommendMedication(boolData);
+    results["Rehabilitation"] = CheckRehabilitation(boolData);
+    return results;
+}
+
+// Helper: Dictionary<string, object>를 Dictionary<string, bool>로 변환
+map<string, bool> DataToBool(const map<string, object>& data) {
+    map<string, bool> boolData;
+    for (const auto& pair : data) {
+        if (pair.second.type() == typeid(bool)) {
+            boolData[pair.first] = any_cast<bool>(pair.second);
         }
     }
-    
-    void print_blockchain() {
-        std::cout << "Blockchain data:" << std::endl;
-        for (const auto& block : blockchain) {
-            std::cout << "Block #" << block.index << std::endl;
-            std::cout << "  Timestamp: " << block.timestamp << std::endl;
-            std::cout << "  Hash: " << block.hash << std::endl;
-            std::cout << "  Previous Hash: " << block.previous_hash << std::endl;
-            std::cout << "  Data: " << (block.data.length() > 50 ? block.data.substr(0, 50) + "..." : block.data) << std::endl;
-            std::cout << std::endl;
+    return boolData;
+}
+
+// 행렬 역행렬 계산 (구체적인 구현 필요)
+vector<vector<double>> InvertMatrix(const vector<vector<double>>& matrix) {
+    // 실제 구현 필요
+    return matrix;
+}
+
+// 행렬-벡터 곱셈
+vector<double> MatrixVectorMultiply(const vector<vector<double>>& matrix, const vector<double>& vector) {
+    int rows = matrix.size();
+    int cols = matrix[0].size();
+    vector<double> result(rows, 0.0);
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            result[i] += matrix[i][j] * vector[j];
         }
     }
-};
+    return result;
+}
+
+// 내적 계산
+double DotProduct(const vector<double>& vec1, const vector<double>& vec2) {
+    double result = 0.0;
+    for (size_t i = 0; i < vec1.size(); ++i) {
+        result += vec1[i] * vec2[i];
+    }
+    return result;
+}
 
 int main() {
-    NavierStokesWithFourier ns_simulator(50, 100, 0.1, 1.0);
-    ns_simulator.simulate_and_record();
-    ns_simulator.print_blockchain();
+    // 예제 데이터
+    map<string, object> patientData = {
+        {"kidney_blood_flow_normal", true},
+        {"diencephalon_flow", true},
+        {"filtered_components", true},
+        {"hormone_levels", true},
+        {"rbc_in_lung", false},
+        {"wbc_mixed", false},
+        {"brain_reverse_flow", false},
+        {"protein_intake", true},
+        {"rbc_wbc_ratio", 1},
+        {"mineral_intake", true},
+        {"rehabilitation_needed", false},
+        {"neural_disorder", false}
+    };
+
+    vector<vector<double>> unitVectors = {
+        {1.0, 0.0},
+        {1.0, 0.0}
+    };
+
+    // 병질 구분 결과 출력
+    map<string, string> results = DiagnoseWithFourier(patientData, unitVectors);
+    for (const auto& result : results) {
+        cout << result.first << ": " << result.second << endl;
+    }
+
     return 0;
 }
