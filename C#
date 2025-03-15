@@ -1,0 +1,61 @@
+using System;
+using System.Security.Cryptography;
+using System.Text;
+
+class NavierStokesFourier
+{
+    private double[,] u;
+    private double viscosity;
+    private double density;
+
+    public NavierStokesFourier(int gridSize, double viscosity, double density)
+    {
+        u = new double[gridSize, gridSize];
+        this.viscosity = viscosity;
+        this.density = density;
+    }
+
+    public void UpdateVelocityField()
+    {
+        int n = u.GetLength(0);
+        double[,] laplacian = new double[n, n];
+
+        for (int i = 1; i < n - 1; i++)
+        {
+            for (int j = 1; j < n - 1; j++)
+            {
+                laplacian[i, j] =
+                    u[i + 1, j] + u[i - 1, j] + u[i, j + 1] + u[i, j - 1] - 4 * u[i, j];
+            }
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
+                u[i, j] += viscosity * laplacian[i, j] / density;
+            }
+        }
+    }
+
+    public string HashVelocityField()
+    {
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(u.ToString()));
+            StringBuilder hexString = new StringBuilder();
+            foreach (byte b in hash)
+            {
+                hexString.Append(b.ToString("x2"));
+            }
+            return hexString.ToString();
+        }
+    }
+
+    static void Main(string[] args)
+    {
+        NavierStokesFourier nsf = new NavierStokesFourier(50, 0.1, 1.0);
+        nsf.UpdateVelocityField();
+        Console.WriteLine("Velocity Field Hash: " + nsf.HashVelocityField());
+    }
+}
