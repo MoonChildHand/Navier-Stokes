@@ -1,344 +1,40 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <complex.h>
 #include <math.h>
-#include <string.h>
 
-// Structure to hold complex vector
-typedef struct {
-    double complex* data;
-    int size;
-} ComplexVector;
-
-// Structure to hold vector
-typedef struct {
-    double* data;
-    int size;
-} Vector;
-
-// Structure to hold matrix
-typedef struct {
-    double** data;
-    int rows;
-    int cols;
-} Matrix;
-
-// Function to create FFT of a vector (simplified)
-ComplexVector navier_stokes_transform(Vector U, Vector omega) {
-    int size = omega.size;
-    ComplexVector result;
-    result.size = size;
-    result.data = (double complex*)malloc(size * sizeof(double complex));
-    
-    // Simplified FFT calculation
-    for (int i = 0; i < size; i++) {
-        result.data[i] = U.data[i % U.size] / (I * omega.data[i]);
-    }
-    
-    return result;
-}
-
-// Linear combination transform
-Vector linear_combination_transform(double a1, Vector F_V, double a2, Vector F_T) {
-    int size = F_V.size;
-    Vector result;
-    result.size = size;
-    result.data = (double*)malloc(size * sizeof(double));
-    
-    for (int i = 0; i < size; i++) {
-        result.data[i] = a1 * F_V.data[i] + a2 * F_T.data[i];
-    }
-    
-    return result;
-}
-
-// Function to calculate matrix-vector-matrix product (simplified mahalanobis)
-double mahalanobis_distance(Vector X, Matrix Sigma) {
-    // Create inverse of Sigma (simplified - assuming identity matrix)
-    Matrix inv_Sigma;
-    inv_Sigma.rows = Sigma.rows;
-    inv_Sigma.cols = Sigma.cols;
-    inv_Sigma.data = (double**)malloc(Sigma.rows * sizeof(double*));
-    for (int i = 0; i < Sigma.rows; i++) {
-        inv_Sigma.data[i] = (double*)malloc(Sigma.cols * sizeof(double));
-        for (int j = 0; j < Sigma.cols; j++) {
-            inv_Sigma.data[i][j] = (i == j) ? 1.0 / Sigma.data[i][j] : 0;
-        }
-    }
-    
-    // Calculate X^T * inv_Sigma * X
-    double result = 0.0;
-    for (int i = 0; i < X.size; i++) {
-        for (int j = 0; j < X.size; j++) {
-            result += X.data[i] * inv_Sigma.data[i][j] * X.data[j];
-        }
-    }
-    
-    // Free memory
-    for (int i = 0; i < inv_Sigma.rows; i++) {
-        free(inv_Sigma.data[i]);
-    }
-    free(inv_Sigma.data);
-    
-    return result;
-}
-
-// Hyperbolic speed calculation
-double hyperbolic_speed(double sech_coeff, double nu) {
-    return -sech_coeff * (1.0 / cosh(nu)) * (1.0 / cosh(nu));
-}
-
-// Check if vectors are unit vectors
-bool check_unit_vectors(Vector* vectors, int num_vectors) {
-    // Normalize first vector
-    double norm = 0.0;
-    for (int i = 0; i < vectors[0].size; i++) {
-        norm += vectors[0].data[i] * vectors[0].data[i];
-    }
-    norm = sqrt(norm);
-    
-    Vector unit_vector;
-    unit_vector.size = vectors[0].size;
-    unit_vector.data = (double*)malloc(vectors[0].size * sizeof(double));
-    
-    for (int i = 0; i < vectors[0].size; i++) {
-        unit_vector.data[i] = vectors[0].data[i] / norm;
-    }
-    
-    // Check if all vectors are close to the first unit vector
-    bool result = true;
-    for (int v = 0; v < num_vectors; v++) {
-        norm = 0.0;
-        for (int i = 0; i < vectors[v].size; i++) {
-            norm += vectors[v].data[i] * vectors[v].data[i];
-        }
-        norm = sqrt(norm);
-        
-        // Check if normalized vector is close to the first unit vector
-        bool close = true;
-        for (int i = 0; i < vectors[v].size; i++) {
-            if (fabs((vectors[v].data[i] / norm) - unit_vector.data[i]) > 1e-10) {
-                close = false;
-                break;
-            }
-        }
-        
-        if (!close) {
-            result = false;
-            break;
-        }
-    }
-    
-    free(unit_vector.data);
-    return result;
-}
-
-// Recommend medication function
-char* recommend_medication(bool rbc_in_lung, bool wbc_mixed, bool brain_reverse_flow) {
-    if (rbc_in_lung) {
-        return "전도체를 가진 약물 복용";  // Immune boosting
-    } else if (wbc_mixed) {
-        return "열전도율이 높은 액체 물질 복용";  // WBC mixing
-    } else if (brain_reverse_flow) {
-        return "소화제, 여과제 등 억제류 마취과 약물 복용";  // Brain reverse flow
-    } else {
-        return "추천되는 약물 없음";
-    }
-}
-
-// Structure for patient data
 typedef struct {
     bool kidney_blood_flow_normal;
     bool diencephalon_flow;
-    Vector U;
-    Vector omega;
-    double a1;
-    Vector F_V;
-    double a2;
-    Vector F_T;
-    Vector X;
-    Matrix Sigma;
-    double sech_coeff;
-    double nu;
-    Vector* unit_vectors;
-    int num_unit_vectors;
+    bool filtered_components;
+    bool hormone_levels;
     bool rbc_in_lung;
     bool wbc_mixed;
     bool brain_reverse_flow;
+    bool protein_intake;
+    int rbc_wbc_ratio;
+    bool mineral_intake;
+    bool rehabilitation_needed;
+    bool neural_disorder;
 } PatientData;
 
-// Structure for diagnosis result
-typedef struct {
-    ComplexVector velocity_field;
-    Vector linear_velocity;
-    double mahalanobis_dist;
-    double hyper_speed;
-    bool unit_vector_consistent;
-    char* medication_recommendation;
-} DiagnosisResult;
-
-// Main diagnostic function
-DiagnosisResult diagnose_with_fourier(PatientData data) {
-    DiagnosisResult result;
-    
-    // Check initial conditions
-    if (!(data.kidney_blood_flow_normal && data.diencephalon_flow)) {
-        printf("초기 조건 불만족: 콩팥/달팽이관 혈류 또는 뇌수 흐름 이상\n");
-        // Initialize empty results
-        result.velocity_field.size = 0;
-        result.velocity_field.data = NULL;
-        result.linear_velocity.size = 0;
-        result.linear_velocity.data = NULL;
-        result.mahalanobis_dist = 0.0;
-        result.hyper_speed = 0.0;
-        result.unit_vector_consistent = false;
-        result.medication_recommendation = "초기 조건 불만족";
-        return result;
-    }
-    
-    // Calculate velocity field using Navier-Stokes
-    result.velocity_field = navier_stokes_transform(data.U, data.omega);
-    
-    // Calculate linear velocity combination
-    result.linear_velocity = linear_combination_transform(data.a1, data.F_V, data.a2, data.F_T);
-    
-    // Calculate Mahalanobis distance
-    result.mahalanobis_dist = mahalanobis_distance(data.X, data.Sigma);
-    
-    // Calculate hyperbolic speed
-    result.hyper_speed = hyperbolic_speed(data.sech_coeff, data.nu);
-    
-    // Check unit vectors consistency
-    result.unit_vector_consistent = check_unit_vectors(data.unit_vectors, data.num_unit_vectors);
-    
-    // Recommend medication
-    result.medication_recommendation = recommend_medication(data.rbc_in_lung, data.wbc_mixed, data.brain_reverse_flow);
-    
-    return result;
+char* check_conditions(PatientData data) {
+    if (!data.kidney_blood_flow_normal)
+        return "콩팥과 달팽이관 간 모세혈관 혈액순환 이상";
+    if (!data.diencephalon_flow)
+        return "뇌수 흐름 방향 이상";
+    return "정상";
 }
 
-void print_diagnosis_result(DiagnosisResult result) {
-    printf("Diagnosis Results:\n");
-    
-    printf("Velocity Field: ");
-    for (int i = 0; i < result.velocity_field.size; i++) {
-        printf("%.2f + %.2fi ", creal(result.velocity_field.data[i]), cimag(result.velocity_field.data[i]));
-    }
-    printf("\n");
-    
-    printf("Linear Velocity: ");
-    for (int i = 0; i < result.linear_velocity.size; i++) {
-        printf("%.2f ", result.linear_velocity.data[i]);
-    }
-    printf("\n");
-    
-    printf("Mahalanobis Distance: %.2f\n", result.mahalanobis_dist);
-    printf("Hyperbolic Speed: %.2f\n", result.hyper_speed);
-    printf("Unit Vector Consistent: %s\n", result.unit_vector_consistent ? "true" : "false");
-    printf("Medication Recommendation: %s\n", result.medication_recommendation);
+char* check_circulatory_and_digestive_system(PatientData data) {
+    if (!data.filtered_components)
+        return "간에서 여과된 성분이 췌장으로 전달되지 않음";
+    if (!data.hormone_levels)
+        return "대뇌 호르몬 수치 이상";
+    return "정상";
 }
 
-// Free memory for diagnosis result
-void free_diagnosis_result(DiagnosisResult* result) {
-    free(result->velocity_field.data);
-    free(result->linear_velocity.data);
-}
-
-int main() {
-    // Create sample patient data
-    PatientData patient;
-    
-    patient.kidney_blood_flow_normal = true;
-    patient.diencephalon_flow = true;
-    
-    // Initialize U vector
-    patient.U.size = 3;
-    patient.U.data = (double*)malloc(patient.U.size * sizeof(double));
-    patient.U.data[0] = 1.0;
-    patient.U.data[1] = 2.0;
-    patient.U.data[2] = 3.0;
-    
-    // Initialize omega vector
-    patient.omega.size = 2;
-    patient.omega.data = (double*)malloc(patient.omega.size * sizeof(double));
-    patient.omega.data[0] = 0.5;
-    patient.omega.data[1] = 1.0;
-    
-    patient.a1 = 0.6;
-    
-    // Initialize F_V vector
-    patient.F_V.size = 2;
-    patient.F_V.data = (double*)malloc(patient.F_V.size * sizeof(double));
-    patient.F_V.data[0] = 0.8;
-    patient.F_V.data[1] = 0.9;
-    
-    patient.a2 = 0.4;
-    
-    // Initialize F_T vector
-    patient.F_T.size = 2;
-    patient.F_T.data = (double*)malloc(patient.F_T.size * sizeof(double));
-    patient.F_T.data[0] = 0.5;
-    patient.F_T.data[1] = 0.7;
-    
-    // Initialize X vector
-    patient.X.size = 2;
-    patient.X.data = (double*)malloc(patient.X.size * sizeof(double));
-    patient.X.data[0] = 1.5;
-    patient.X.data[1] = 2.0;
-    
-    // Initialize Sigma matrix
-    patient.Sigma.rows = 2;
-    patient.Sigma.cols = 2;
-    patient.Sigma.data = (double**)malloc(patient.Sigma.rows * sizeof(double*));
-    for (int i = 0; i < patient.Sigma.rows; i++) {
-        patient.Sigma.data[i] = (double*)malloc(patient.Sigma.cols * sizeof(double));
-    }
-    patient.Sigma.data[0][0] = 1.0;
-    patient.Sigma.data[0][1] = 0.0;
-    patient.Sigma.data[1][0] = 0.0;
-    patient.Sigma.data[1][1] = 1.0;
-    
-    patient.sech_coeff = -0.3;
-    patient.nu = 0.5;
-    
-    // Initialize unit vectors
-    patient.num_unit_vectors = 2;
-    patient.unit_vectors = (Vector*)malloc(patient.num_unit_vectors * sizeof(Vector));
-    
-    for (int v = 0; v < patient.num_unit_vectors; v++) {
-        patient.unit_vectors[v].size = 2;
-        patient.unit_vectors[v].data = (double*)malloc(patient.unit_vectors[v].size * sizeof(double));
-        patient.unit_vectors[v].data[0] = 1.0;
-        patient.unit_vectors[v].data[1] = 0.0;
-    }
-    
-    patient.rbc_in_lung = false;
-    patient.wbc_mixed = false;
-    patient.brain_reverse_flow = false;
-    
-    // Run diagnosis
-    DiagnosisResult result = diagnose_with_fourier(patient);
-    
-    // Print results
-    print_diagnosis_result(result);
-    
-    // Free memory
-    free(patient.U.data);
-    free(patient.omega.data);
-    free(patient.F_V.data);
-    free(patient.F_T.data);
-    free(patient.X.data);
-    for (int i = 0; i < patient.Sigma.rows; i++) {
-        free(patient.Sigma.data[i]);
-    }
-    free(patient.Sigma.data);
-    for (int v = 0; v < patient.num_unit_vectors; v++) {
-        free(patient.unit_vectors[v].data);
-    }
-    free(patient.unit_vectors);
-    
-    free_diagnosis_result(&result);
-    
-    return 0;
-}
+char* check_blood_cells(PatientData data) {
+    if (data.rbc_in_lung)
+        return "폐순환에서 적혈구 발견 - 백혈병 가능성";
+    if (data.wbc_mixed
